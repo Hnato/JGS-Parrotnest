@@ -464,10 +464,10 @@ body {
 
 .sidebar-header {
     padding: 20px;
-    margin-left: -30px;
     border-bottom: 1px solid var(--border-green);
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.08) 100%);
 }
@@ -480,20 +480,20 @@ body {
 }
 
 .sidebar-header .header-logo {
-    width: 120px;
-    height: 80px;
+    width: 50px;
+    height: 50px;
     object-fit: contain;
-    filter: drop-shadow(0 0 8px rgba(76, 175, 80, 0.4));
+    filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.4));
     transition: transform 0.4s ease;
 }
 
 .sidebar-header:hover .header-logo {
-    transform: scale(1.12) rotate(4deg);
+    transform: scale(1.1) rotate(5deg);
 }
 
 .sidebar-header h2 {
-    margin: -20;
-    font-size: 1.6rem;
+    margin: 0;
+    font-size: 1.4rem;
     color: var(--accent-green);
     text-shadow: 0 0 12px rgba(76, 175, 80, 0.35);
 }
@@ -568,9 +568,15 @@ body {
     overflow: hidden;
 }
 
+.user-profile .avatar {
+    width: 48px;
+    height: 48px;
+    min-width: 48px; /* Ensure it doesn't shrink */
+}
+
 .user-info h4 {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;

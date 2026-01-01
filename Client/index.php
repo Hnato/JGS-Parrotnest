@@ -20,10 +20,6 @@
                     <img src="logo.png" alt="Logo" class="header-logo">
                     <h2>Parrotnest</h2>
                 </div>
-                <div class="notification-bell-container" id="notificationBellContainer" style="position: relative; margin-left: auto; cursor: pointer;">
-                     <div class="notification-icon" style="font-size: 1.2rem;">🔔</div>
-                     <div class="notification-badge" id="notificationBadge" style="display: none; position: absolute; top: -5px; right: -5px; background-color: var(--error-color); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; align-items: center; justify-content: center; font-weight: bold;">0</div>
-                </div>
             </div>
             
                 <div class="chat-list">
