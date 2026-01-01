@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Hosting;
 using ParrotnestServer.Data;
 using ParrotnestServer.Models;
+using ParrotnestServer.Hubs;
 using System.Security.Claims;
 
 namespace ParrotnestServer.Controllers
@@ -16,12 +18,14 @@ namespace ParrotnestServer.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly IConfiguration _configuration;
+        private readonly IHubContext<ChatHub> _hubContext;
 
-        public GroupsController(ApplicationDbContext context, IWebHostEnvironment environment, IConfiguration configuration)
+        public GroupsController(ApplicationDbContext context, IWebHostEnvironment environment, IConfiguration configuration, IHubContext<ChatHub> hubContext)
         {
             _context = context;
             _environment = environment;
             _configuration = configuration;
+            _hubContext = hubContext;
         }
 
         [HttpPost]
@@ -90,6 +94,27 @@ namespace ParrotnestServer.Controllers
 
             await _context.SaveChangesAsync();
 
+            // Notify owner and all added members
+            var memberUserIds = await _context.GroupMembers
+                .Where(gm => gm.GroupId == group.Id)
+                .Select(gm => gm.UserId)
+                .ToListAsync();
+
+            var groupPayload = new
+            {
+                Id = group.Id,
+                group.Name,
+                group.AvatarUrl,
+                group.CreatedAt,
+                group.OwnerId
+            };
+
+            foreach (var uid in memberUserIds)
+            {
+                await _hubContext.Clients.User(uid.ToString())
+                    .SendAsync("GroupMembershipChanged", "added", groupPayload);
+            }
+
             return Ok(new { message = "Grupa została utworzona.", groupId = group.Id });
         }
 
@@ -149,6 +174,25 @@ namespace ParrotnestServer.Controllers
 
             await _context.SaveChangesAsync();
 
+            // Notify all members about update
+            var memberUserIds = await _context.GroupMembers
+                .Where(gm => gm.GroupId == group.Id)
+                .Select(gm => gm.UserId)
+                .ToListAsync();
+            var groupPayload = new
+            {
+                Id = group.Id,
+                group.Name,
+                group.AvatarUrl,
+                group.CreatedAt,
+                group.OwnerId
+            };
+            foreach (var uid in memberUserIds)
+            {
+                await _hubContext.Clients.User(uid.ToString())
+                    .SendAsync("GroupMembershipChanged", "updated", groupPayload);
+            }
+
             return Ok(new { message = "Grupa została zaktualizowana.", group });
         }
 
@@ -196,6 +240,25 @@ namespace ParrotnestServer.Controllers
             group.AvatarUrl = avatarUrl;
             await _context.SaveChangesAsync();
 
+            // Notify members about avatar update
+            var memberUserIds = await _context.GroupMembers
+                .Where(gm => gm.GroupId == id)
+                .Select(gm => gm.UserId)
+                .ToListAsync();
+            var groupPayload = new
+            {
+                Id = group.Id,
+                group.Name,
+                group.AvatarUrl,
+                group.CreatedAt,
+                group.OwnerId
+            };
+            foreach (var uid in memberUserIds)
+            {
+                await _hubContext.Clients.User(uid.ToString())
+                    .SendAsync("GroupMembershipChanged", "updated", groupPayload);
+            }
+
             return Ok(new { url = avatarUrl });
         }
 
@@ -216,8 +279,30 @@ namespace ParrotnestServer.Controllers
             {
                 return Forbid("Tylko właściciel może usunąć grupę.");
             }
+            // Capture members before deletion
+            var memberUserIds = await _context.GroupMembers
+                .Where(gm => gm.GroupId == id)
+                .Select(gm => gm.UserId)
+                .ToListAsync();
+
             _context.Groups.Remove(group);
             await _context.SaveChangesAsync();
+
+            // Notify members about removal
+            var groupPayload = new
+            {
+                Id = id,
+                Name = group.Name,
+                AvatarUrl = group.AvatarUrl,
+                CreatedAt = group.CreatedAt,
+                OwnerId = group.OwnerId
+            };
+            foreach (var uid in memberUserIds)
+            {
+                await _hubContext.Clients.User(uid.ToString())
+                    .SendAsync("GroupMembershipChanged", "removed", groupPayload);
+            }
+
             return Ok(new { message = "Grupa została usunięta." });
         }
 
@@ -284,9 +369,150 @@ namespace ParrotnestServer.Controllers
             if (addedCount > 0)
             {
                 await _context.SaveChangesAsync();
+
+                // Notify newly added users
+                var groupEntity = await _context.Groups.FindAsync(id);
+                if (groupEntity != null)
+                {
+                    var groupPayload = new
+                    {
+                        Id = groupEntity.Id,
+                        groupEntity.Name,
+                        groupEntity.AvatarUrl,
+                        groupEntity.CreatedAt,
+                        groupEntity.OwnerId
+                    };
+                    foreach (var userToAdd in usersToAdd)
+                    {
+                        // double-check exists added
+                        var existsNow = await _context.GroupMembers.AnyAsync(gm => gm.GroupId == id && gm.UserId == userToAdd.Id);
+                        if (existsNow)
+                        {
+                            await _hubContext.Clients.User(userToAdd.Id.ToString())
+                                .SendAsync("GroupMembershipChanged", "added", groupPayload);
+                        }
+                    }
+                }
             }
 
             return Ok(new { message = $"Dodano {addedCount} użytkowników do grupy." });
+        }
+
+        [HttpGet("{id}/members")]
+        public async Task<IActionResult> GetGroupMembers(int id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            var isMember = await _context.GroupMembers.AnyAsync(gm => gm.GroupId == id && gm.UserId == userId);
+            if (!isMember)
+            {
+                return Forbid("Nie jesteś członkiem tej grupy.");
+            }
+
+            var members = await _context.GroupMembers
+                .Where(gm => gm.GroupId == id)
+                .Include(gm => gm.User)
+                .Select(gm => new
+                {
+                    gm.UserId,
+                    Username = gm.User != null ? gm.User.Username : null,
+                    AvatarUrl = gm.User != null ? gm.User.AvatarUrl : null,
+                    JoinedAt = gm.JoinedAt
+                })
+                .ToListAsync();
+
+            return Ok(members);
+        }
+
+        [HttpDelete("{id}/members/me")]
+        public async Task<IActionResult> LeaveGroup(int id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            var group = await _context.Groups.FindAsync(id);
+            if (group == null)
+            {
+                return NotFound("Grupa nie została znaleziona.");
+            }
+
+            if (group.OwnerId == userId)
+            {
+                return Forbid("Właściciel nie może opuścić grupy. Usuń grupę lub przekaż własność.");
+            }
+
+            var membership = await _context.GroupMembers.FirstOrDefaultAsync(gm => gm.GroupId == id && gm.UserId == userId);
+            if (membership == null)
+            {
+                return NotFound("Nie jesteś członkiem tej grupy.");
+            }
+
+            _context.GroupMembers.Remove(membership);
+            await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.User(userId.ToString())
+                .SendAsync("GroupMembershipChanged", "removed", new
+                {
+                    Id = group.Id,
+                    group.Name,
+                    group.AvatarUrl,
+                    group.CreatedAt,
+                    group.OwnerId
+                });
+
+            return Ok(new { message = "Opuściłeś grupę." });
+        }
+
+        [HttpDelete("{id}/members/{userId}")]
+        public async Task<IActionResult> RemoveMember(int id, int userId)
+        {
+            var ownerIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(ownerIdClaim) || !int.TryParse(ownerIdClaim, out int requesterId))
+            {
+                return Unauthorized();
+            }
+
+            var group = await _context.Groups.FindAsync(id);
+            if (group == null)
+            {
+                return NotFound("Grupa nie została znaleziona.");
+            }
+            if (group.OwnerId != requesterId)
+            {
+                return Forbid("Tylko właściciel może usuwać użytkowników z grupy.");
+            }
+            if (userId == requesterId)
+            {
+                return BadRequest("Właściciel nie może usuwać samego siebie. Użyj usunięcia grupy.");
+            }
+
+            var membership = await _context.GroupMembers.FirstOrDefaultAsync(gm => gm.GroupId == id && gm.UserId == userId);
+            if (membership == null)
+            {
+                return NotFound("Użytkownik nie jest członkiem tej grupy.");
+            }
+
+            _context.GroupMembers.Remove(membership);
+            await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.User(userId.ToString())
+                .SendAsync("GroupMembershipChanged", "removed", new
+                {
+                    Id = group.Id,
+                    group.Name,
+                    group.AvatarUrl,
+                    group.CreatedAt,
+                    group.OwnerId
+                });
+
+            return Ok(new { message = "Użytkownik został usunięty z grupy." });
         }
     }
 

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System;
 using System.Security.Claims;
+using Message = ParrotnestServer.Models.Message;
 
 namespace ParrotnestServer.Hubs
 {
@@ -99,7 +100,16 @@ namespace ParrotnestServer.Hubs
 
                         foreach (var memberId in members)
                         {
-                            await Clients.User(memberId.ToString()).SendAsync("ReceiveMessage", sender.Id, senderUsername, message ?? string.Empty, imageUrl, receiverId, groupId);
+                            await Clients.User(memberId.ToString()).SendAsync(
+                                "ReceiveMessage",
+                                sender.Id,
+                                senderUsername,
+                                message ?? string.Empty,
+                                imageUrl,
+                                receiverId,
+                                groupId,
+                                sender.AvatarUrl
+                            );
                         }
                     }
                     else if (receiverId.HasValue)
@@ -108,14 +118,41 @@ namespace ParrotnestServer.Hubs
                         var receiver = await _context.Users.FindAsync(receiverId.Value);
                         if (receiver != null)
                         {
-                            await Clients.User(sender.Id.ToString()).SendAsync("ReceiveMessage", sender.Id, senderUsername, message ?? string.Empty, imageUrl, receiverId, null);
-                            await Clients.User(receiverId.Value.ToString()).SendAsync("ReceiveMessage", sender.Id, senderUsername, message ?? string.Empty, imageUrl, receiverId, null);
+                            await Clients.User(sender.Id.ToString()).SendAsync(
+                                "ReceiveMessage",
+                                sender.Id,
+                                senderUsername,
+                                message ?? string.Empty,
+                                imageUrl,
+                                receiverId,
+                                null,
+                                sender.AvatarUrl
+                            );
+                            await Clients.User(receiverId.Value.ToString()).SendAsync(
+                                "ReceiveMessage",
+                                sender.Id,
+                                senderUsername,
+                                message ?? string.Empty,
+                                imageUrl,
+                                receiverId,
+                                null,
+                                sender.AvatarUrl
+                            );
                         }
                     }
                     else
                     {
                         // Global chat - broadcast to all
-                        await Clients.All.SendAsync("ReceiveMessage", sender.Id, senderUsername, message ?? string.Empty, imageUrl, null, null);
+                        await Clients.All.SendAsync(
+                            "ReceiveMessage",
+                            sender.Id,
+                            senderUsername,
+                            message ?? string.Empty,
+                            imageUrl,
+                            null,
+                            null,
+                            sender.AvatarUrl
+                        );
                     }
                 }
                 else

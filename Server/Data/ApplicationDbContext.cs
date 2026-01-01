@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ParrotnestServer.Models;
+using Message = ParrotnestServer.Models.Message;
 
 namespace ParrotnestServer.Data
 {

@@ -1,7 +1,17 @@
-// Automatically determine API/HUB using current origin (supports any port/domain)
-const ORIGIN = window.location.origin;
-const API_URL = `${ORIGIN}/api`;
-const HUB_URL = `${ORIGIN}/chatHub`;
+(() => {
+    let origin = window.location.origin || 'http://localhost:5000';
+    try {
+        const u = new URL(origin);
+        if (u.hostname === '0.0.0.0') {
+            u.hostname = 'localhost';
+            origin = `${u.protocol}//${u.hostname}${u.port ? ':' + u.port : ''}`;
+        }
+    } catch {}
+    window.__SERVER_BASE_DEFAULT__ = origin;
+})();
+const SERVER_BASE = (localStorage.getItem('serverBase') || window.__SERVER_BASE_DEFAULT__).replace(/\/+$/,'');
+const API_URL = `${SERVER_BASE}/api`;
+const HUB_URL = `${SERVER_BASE}/chatHub`;
 
 function resolveUrl(url) {
     if (!url) return null;
@@ -232,19 +242,15 @@ if (messageInput) {
         const attachmentPreview = document.getElementById('attachmentPreview');
         const attachButton = document.getElementById('attachButton');
         const userStatusEl = document.getElementById('userStatus');
-        const notificationBell = document.getElementById('notificationBellContainer');
-        const notificationIcon = document.querySelector('#notificationBellContainer .notification-icon');
+        const notificationBell = document.getElementById('notificationButton');
         let notificationsMuted = localStorage.getItem('notificationsMuted') === 'true';
-        if (notificationIcon) {
-            notificationIcon.textContent = notificationsMuted ? '🔕' : '🔔';
-        }
+        
         if (notificationBell) {
+            notificationBell.textContent = notificationsMuted ? '🔕' : '🔔';
             notificationBell.addEventListener('click', () => {
                 notificationsMuted = !notificationsMuted;
                 localStorage.setItem('notificationsMuted', notificationsMuted ? 'true' : 'false');
-                if (notificationIcon) {
-                    notificationIcon.textContent = notificationsMuted ? '🔕' : '🔔';
-                }
+                notificationBell.textContent = notificationsMuted ? '🔕' : '🔔';
                 showNotification(notificationsMuted ? 'Powiadomienia wyłączone' : 'Powiadomienia włączone', 'info');
             });
         }
@@ -402,8 +408,9 @@ if (messageInput) {
             userNameEl.textContent = user.username || 'Użytkownik';
         }
         if (userAvatarEl) {
-            if (user.avatarUrl) {
-                userAvatarEl.style.backgroundImage = `url('${resolveUrl(user.avatarUrl)}')`;
+            const uAv = user.avatarUrl || user.AvatarUrl;
+            if (uAv) {
+                userAvatarEl.style.backgroundImage = `url('${resolveUrl(uAv)}')`;
                 userAvatarEl.style.backgroundSize = 'cover';
                 userAvatarEl.textContent = '';
             } else if (user.username) {
@@ -424,7 +431,30 @@ if (messageInput) {
             }
         });
 
-        connection.on("ReceiveMessage", (senderId, senderUsername, message, imageUrl, receiverId, groupId) => {
+        // Live updates for groups
+        connection.on("GroupMembershipChanged", async (action, group) => {
+            try {
+                await loadGroups();
+                if (action === 'added') {
+                    showNotification(`Dołączono do grupy: ${group?.Name || group?.name}`, 'success');
+                } else if (action === 'removed') {
+                    showNotification(`Usunięto z grupy: ${group?.Name || group?.name}`, 'info');
+                    const last = localStorage.getItem('lastChat');
+                    if (last) {
+                        const { id, type } = JSON.parse(last);
+                        if (type === 'group' && id == group?.Id) {
+                            selectChat(null, 'Ogólny', null, 'global');
+                        }
+                    }
+                } else if (action === 'updated') {
+                    showNotification(`Zaktualizowano grupę: ${group?.Name || group?.name}`, 'info');
+                }
+            } catch (e) {
+                console.error('GroupMembershipChanged handler error', e);
+            }
+        });
+
+        connection.on("ReceiveMessage", (senderId, senderUsername, message, imageUrl, receiverId, groupId, senderAvatarUrl) => {
             // Fix image URL if needed
             if (imageUrl) {
                 imageUrl = resolveUrl(imageUrl);
@@ -491,6 +521,19 @@ if (messageInput) {
             const messageWrapper = document.createElement("div");
             messageWrapper.className = `message-wrapper ${isOwnMessage ? 'own-message' : ''}`;
             
+            const row = document.createElement("div");
+            row.className = "message-row";
+            
+            const avatarEl = document.createElement("div");
+            avatarEl.className = "message-avatar";
+            if (senderAvatarUrl) {
+                const url = resolveUrl(senderAvatarUrl);
+                avatarEl.style.backgroundImage = `url('${url}')`;
+                avatarEl.textContent = '';
+            } else if (senderUsername) {
+                avatarEl.textContent = senderUsername.charAt(0).toUpperCase();
+            }
+            
             const msgDiv = document.createElement("div");
             msgDiv.className = isOwnMessage ? "message sent" : "message received";
             
@@ -523,7 +566,9 @@ if (messageInput) {
             timestamp.textContent = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
             msgDiv.appendChild(timestamp);
             
-            messageWrapper.appendChild(msgDiv);
+            row.appendChild(avatarEl);
+            row.appendChild(msgDiv);
+            messageWrapper.appendChild(row);
             
             const messagesContainer = document.getElementById("chat-messages");
             if (messagesContainer) {
@@ -611,6 +656,7 @@ if (messageInput) {
                     pendingRequests = await response.json();
                     updateChatList();
                     updateNotificationBadge();
+                    renderPendingRequestsModal();
                 } else {
                     await handleApiError(response, 'Błąd pobierania zaproszeń');
                 }
@@ -795,14 +841,17 @@ if (messageInput) {
                     
                     const avatar = document.createElement('div');
                     avatar.className = 'avatar';
-                    if (group.avatarUrl) {
-                        avatar.style.backgroundImage = `url('${resolveUrl(group.avatarUrl)}')`;
-                        avatar.style.backgroundSize = 'cover';
-                        avatar.style.backgroundPosition = 'center';
-                        avatar.textContent = '';
-                    } else {
-                        avatar.textContent = group.name.charAt(0).toUpperCase();
-                        avatar.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; // Purple for groups
+                    {
+                        const gAv = group.avatarUrl || group.AvatarUrl;
+                        if (gAv) {
+                            avatar.style.backgroundImage = `url('${resolveUrl(gAv)}')`;
+                            avatar.style.backgroundSize = 'cover';
+                            avatar.style.backgroundPosition = 'center';
+                            avatar.textContent = '';
+                        } else {
+                            avatar.textContent = group.name.charAt(0).toUpperCase();
+                            avatar.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                        }
                     }
                     
                     const chatInfo = document.createElement('div');
@@ -815,7 +864,8 @@ if (messageInput) {
                     chatItem.appendChild(chatInfo);
                     
                     chatItem.addEventListener('click', () => {
-                        selectChat(group.id, group.name, group.avatarUrl, 'group');
+                        const gAv = group.avatarUrl || group.AvatarUrl;
+                        selectChat(group.id, group.name, gAv, 'group');
                     });
                     
                     chatList.appendChild(chatItem);
@@ -844,13 +894,16 @@ if (messageInput) {
                     
                     const avatar = document.createElement('div');
                     avatar.className = 'avatar';
-                    if (friend.avatarUrl) {
-                        avatar.style.backgroundImage = `url('${resolveUrl(friend.avatarUrl)}')`;
-                        avatar.style.backgroundSize = 'cover';
-                        avatar.style.backgroundPosition = 'center';
-                        avatar.textContent = '';
-                    } else {
-                        avatar.textContent = friend.username.charAt(0).toUpperCase();
+                    {
+                        const fAv = friend.avatarUrl || friend.AvatarUrl;
+                        if (fAv) {
+                            avatar.style.backgroundImage = `url('${resolveUrl(fAv)}')`;
+                            avatar.style.backgroundSize = 'cover';
+                            avatar.style.backgroundPosition = 'center';
+                            avatar.textContent = '';
+                        } else {
+                            avatar.textContent = friend.username.charAt(0).toUpperCase();
+                        }
                     }
                     
                     const chatInfo = document.createElement('div');
@@ -873,16 +926,136 @@ if (messageInput) {
                         h4.appendChild(statusDot);
                     }
                     
+                    // Remove friend button (X)
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn-icon';
+                    removeBtn.title = 'Usuń znajomego';
+                    removeBtn.textContent = '×';
+                    removeBtn.style.marginLeft = 'auto';
+                    removeBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Usunąć znajomego ${friend.username}?`)) return;
+                        try {
+                            const response = await fetch(`${API_URL}/friends/${friend.id}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (response.ok) {
+                                showNotification('Znajomy usunięty.', 'success');
+                                await loadFriends();
+                                updateChatList();
+                            } else {
+                                await handleApiError(response, 'Nie udało się usunąć znajomego');
+                            }
+                        } catch (err) {
+                            console.error('Error removing friend:', err);
+                            showNotification('Wystąpił błąd.', 'error');
+                        }
+                    };
+                    
                     chatItem.appendChild(avatar);
                     chatItem.appendChild(chatInfo);
+                    chatItem.appendChild(removeBtn);
                     
                     chatItem.addEventListener('click', () => {
-                        selectChat(friend.id, friend.username, friend.avatarUrl, 'private');
+                        const fAv = friend.avatarUrl || friend.AvatarUrl;
+                        selectChat(friend.id, friend.username, fAv, 'private');
                     });
                     
                     chatList.appendChild(chatItem);
                 });
             }
+        }
+
+        function renderPendingRequestsModal() {
+            const list = document.getElementById('pendingRequestsList');
+            if (!list) return;
+            list.innerHTML = '';
+            if (!pendingRequests || pendingRequests.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.color = 'var(--text-muted)';
+                empty.style.fontSize = '0.8rem';
+                empty.style.width = '100%';
+                empty.style.textAlign = 'center';
+                empty.textContent = 'Brak zaproszeń.';
+                list.appendChild(empty);
+                return;
+            }
+            pendingRequests.forEach(req => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '10px';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar';
+                {
+                    const rAv = req.avatarUrl || req.AvatarUrl;
+                    if (rAv) {
+                        avatar.style.backgroundImage = `url('${resolveUrl(rAv)}')`;
+                        avatar.style.backgroundSize = 'cover';
+                        avatar.style.backgroundPosition = 'center';
+                        avatar.textContent = '';
+                    } else {
+                        avatar.textContent = (req.username || 'U').charAt(0).toUpperCase();
+                    }
+                }
+                
+                const name = document.createElement('div');
+                name.style.flex = '1';
+                name.textContent = req.username || `Użytkownik ${req.requesterId}`;
+                
+                const accept = document.createElement('button');
+                accept.className = 'btn-secondary';
+                accept.textContent = 'Akceptuj';
+                accept.onclick = async () => {
+                    try {
+                        const response = await fetch(`${API_URL}/friends/accept/${req.id}`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (response.ok) {
+                            showNotification('Zaproszenie zaakceptowane.', 'success');
+                            await loadPendingRequests();
+                            await loadFriends();
+                        } else {
+                            await handleApiError(response, 'Nie udało się zaakceptować zaproszenia');
+                        }
+                    } catch (err) {
+                        console.error('Accept error', err);
+                        showNotification('Błąd akceptacji zaproszenia.', 'error');
+                    }
+                };
+                
+                const reject = document.createElement('button');
+                reject.className = 'btn-secondary';
+                reject.textContent = 'Odrzuć';
+                reject.onclick = async () => {
+                    if (!confirm('Odrzucić zaproszenie?')) return;
+                    try {
+                        const response = await fetch(`${API_URL}/friends/${req.id}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (response.ok) {
+                            showNotification('Zaproszenie odrzucone.', 'success');
+                            await loadPendingRequests();
+                        } else {
+                            await handleApiError(response, 'Nie udało się odrzucić zaproszenia');
+                        }
+                    } catch (err) {
+                        console.error('Reject error', err);
+                        showNotification('Błąd odrzucania zaproszenia.', 'error');
+                    }
+                };
+                
+                row.appendChild(avatar);
+                row.appendChild(name);
+                row.appendChild(accept);
+                row.appendChild(reject);
+                
+                list.appendChild(row);
+            });
         }
 
         // Update chat selection logic
@@ -1038,6 +1211,11 @@ if (messageInput) {
                         if (addMemberBtn) {
                              addMemberBtn.style.display = 'none';
                         }
+                        const deleteGroupBtn = document.getElementById('deleteGroupBtn');
+                        if (deleteGroupBtn) {
+                            deleteGroupBtn.style.display = 'none';
+                            deleteGroupBtn.onclick = null;
+                        }
                     }
                 } else {
                     newAvatar.style.cursor = 'default';
@@ -1047,6 +1225,11 @@ if (messageInput) {
                     const addMemberBtn = document.getElementById('addGroupMemberBtn');
                     if (addMemberBtn) {
                          addMemberBtn.style.display = 'none';
+                    }
+                    const deleteGroupBtn = document.getElementById('deleteGroupBtn');
+                    if (deleteGroupBtn) {
+                        deleteGroupBtn.style.display = 'none';
+                        deleteGroupBtn.onclick = null;
                     }
                 }
             }
@@ -1160,6 +1343,7 @@ if (messageInput) {
                         // Ensure we compare usernames correctly (handle both string and object cases)
                         const senderObj = msg.sender || msg.Sender;
                         const senderUsername = typeof senderObj === 'string' ? senderObj : (senderObj?.username || senderObj?.Username || 'Nieznany');
+                        const senderAvatarUrl = msg.senderAvatarUrl || msg.SenderAvatarUrl || null;
                         
                         // Use ID for reliable ownership check if available
                         let isOwnMessage = false;
@@ -1175,6 +1359,19 @@ if (messageInput) {
 
                         const messageWrapper = document.createElement("div");
                         messageWrapper.className = `message-wrapper ${isOwnMessage ? 'own-message' : ''}`;
+                        
+                        const row = document.createElement("div");
+                        row.className = "message-row";
+                        
+                        const avatarEl = document.createElement("div");
+                        avatarEl.className = "message-avatar";
+                        if (senderAvatarUrl) {
+                            const url = resolveUrl(senderAvatarUrl);
+                            avatarEl.style.backgroundImage = `url('${url}')`;
+                            avatarEl.textContent = '';
+                        } else if (senderUsername) {
+                            avatarEl.textContent = senderUsername.charAt(0).toUpperCase();
+                        }
                         
                         const msgDiv = document.createElement("div");
                         msgDiv.className = isOwnMessage ? "message sent" : "message received";
@@ -1221,7 +1418,9 @@ if (messageInput) {
                         }
                         msgDiv.appendChild(timestamp);
                         
-                        messageWrapper.appendChild(msgDiv);
+                        row.appendChild(avatarEl);
+                        row.appendChild(msgDiv);
+                        messageWrapper.appendChild(row);
                         messagesContainer.appendChild(messageWrapper);
                     } catch (msgError) {
                         console.error('Error processing message:', msgError, msg);
@@ -1336,7 +1535,6 @@ if (messageInput) {
             });
         }
 
-        // Tab switching
         tabButtons.forEach(button => {
             button.addEventListener('click', () => {
                 const tab = button.dataset.tab;
@@ -1349,13 +1547,10 @@ if (messageInput) {
                 } else {
                     groupTab.classList.add('active');
                     friendTab.classList.remove('active');
-                    // Render friend selection for group creation
                     renderFriendSelection('friendsSelectionList', 'groupMembers');
                 }
             });
         });
-
-        // Add friend functionality
         if (addFriendBtn) {
             addFriendBtn.addEventListener('click', async () => {
                 const friendInput = document.getElementById('friendUsername');
@@ -1380,16 +1575,14 @@ if (messageInput) {
                         const data = await response.json();
                         friendInput.value = '';
                         addModal.classList.remove('show');
-                        
-                        // Reload friends list
+
                         await loadFriends();
-                        
-                        // Handle response types
+
                         if (data.pending) {
                             showNotification('Zaproszenie zostało wysłane. Poczekaj na akceptację użytkownika.', 'success');
                         } else if (data.alreadyFriends) {
                             showNotification(data.message || 'Jesteście już znajomymi.', 'success');
-                            // Only open chat if they are actually friends
+
                             if (data.friendId) {
                                 selectChat(data.friendId, data.username, data.avatarUrl);
                             }
@@ -1460,10 +1653,6 @@ if (messageInput) {
                 }
             });
         }
-
-
-
-        // Add Group Member Modal Logic
         const addGroupMemberBtn = document.getElementById('addGroupMemberBtn');
         const addMemberModal = document.getElementById('addMemberModal');
         const closeAddMemberModal = document.getElementById('closeAddMemberModal');
@@ -1473,9 +1662,6 @@ if (messageInput) {
             addGroupMemberBtn.addEventListener('click', () => {
                 if (currentChatType !== 'group' || !currentChatId) return;
                 
-                // Clear selection
-                // We need a hidden input to store selection for this modal too, let's create one dynamically or use a variable
-                // Actually, let's create a temporary hidden input if not exists
                 let hiddenInput = document.getElementById('addMemberHiddenInput');
                 if (!hiddenInput) {
                     hiddenInput = document.createElement('input');
@@ -1538,7 +1724,6 @@ if (messageInput) {
             });
         }
 
-        // Settings Modal Functionality
         const settingsButton = document.getElementById('settingsButton');
         const settingsModal = document.getElementById('settingsModal');
         const closeSettingsModal = document.getElementById('closeSettingsModal');
@@ -1549,7 +1734,6 @@ if (messageInput) {
         const settingsUsername = document.getElementById('settingsUsername');
         const settingsEmail = document.getElementById('settingsEmail');
 
-        // Open Settings
         if (settingsButton && settingsModal) {
             settingsButton.addEventListener('click', async () => {
                 settingsModal.classList.add('show');
@@ -1557,14 +1741,14 @@ if (messageInput) {
             });
         }
 
-        // Close Settings
+
         if (closeSettingsModal) {
             closeSettingsModal.addEventListener('click', () => {
                 settingsModal.classList.remove('show');
             });
         }
 
-        // Close on click outside
+
         if (settingsModal) {
             settingsModal.addEventListener('click', (e) => {
                 if (e.target === settingsModal) {
@@ -1573,7 +1757,7 @@ if (messageInput) {
             });
         }
 
-        // Load User Data
+
         async function loadUserData() {
             try {
                 const response = await fetch(`${API_URL}/users/me`, {
@@ -1587,17 +1771,20 @@ if (messageInput) {
                     if (settingsUsername) settingsUsername.value = user.username;
                     if (settingsEmail) settingsEmail.value = user.email;
                     
-                    if (user.avatarUrl) {
-                        settingsAvatarPreview.style.backgroundImage = `url('${resolveUrl(user.avatarUrl)}')`;
-                        settingsAvatarPreview.textContent = '';
-                    } else {
-                        settingsAvatarPreview.style.backgroundImage = '';
-                        settingsAvatarPreview.textContent = user.username.charAt(0).toUpperCase();
-                        settingsAvatarPreview.style.display = 'flex';
-                        settingsAvatarPreview.style.alignItems = 'center';
-                        settingsAvatarPreview.style.justifyContent = 'center';
-                        settingsAvatarPreview.style.fontSize = '2rem';
-                        settingsAvatarPreview.style.color = 'var(--text-primary)';
+                    {
+                        const uAv = user.avatarUrl || user.AvatarUrl;
+                        if (uAv) {
+                            settingsAvatarPreview.style.backgroundImage = `url('${resolveUrl(uAv)}')`;
+                            settingsAvatarPreview.textContent = '';
+                        } else {
+                            settingsAvatarPreview.style.backgroundImage = '';
+                            settingsAvatarPreview.textContent = user.username.charAt(0).toUpperCase();
+                            settingsAvatarPreview.style.display = 'flex';
+                            settingsAvatarPreview.style.alignItems = 'center';
+                            settingsAvatarPreview.style.justifyContent = 'center';
+                            settingsAvatarPreview.style.fontSize = '2rem';
+                            settingsAvatarPreview.style.color = 'var(--text-primary)';
+                        }
                     }
                 }
             } catch (error) {
@@ -1768,14 +1955,12 @@ if (messageInput) {
             await startConnection();
         });
 
-        // Load initial data immediately (doesn't require SignalR)
+
         loadFriends();
         loadGroups();
 
-        // Initial start
         await startConnection();
 
-        // Image Lightbox Functionality
         const imageModal = document.getElementById('image-modal');
         const modalImg = document.getElementById("img-preview");
         const closeImageModal = document.getElementsByClassName("close-image-modal")[0];

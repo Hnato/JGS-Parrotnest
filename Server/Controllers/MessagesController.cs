@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ParrotnestServer.Data;
 using ParrotnestServer.Models;
 using System.Security.Claims;
+using Message = ParrotnestServer.Models.Message;
 
 namespace ParrotnestServer.Controllers
 {
@@ -65,6 +66,7 @@ namespace ParrotnestServer.Controllers
                         Content = m.Content ?? string.Empty,
                         Sender = m.Sender != null ? m.Sender.Username : "Nieznany",
                         SenderId = m.SenderId,
+                        SenderAvatarUrl = m.Sender != null ? m.Sender.AvatarUrl : null,
                         ReceiverId = m.ReceiverId,
                         Timestamp = m.Timestamp,
                         ImageUrl = m.ImageUrl

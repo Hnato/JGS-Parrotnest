@@ -43,6 +43,7 @@
                         </div>
                     </div>
                     <div class="user-actions">
+                        <button class="btn-icon" id="notificationButton" title="Włącz/Wyłącz powiadomienia">🔔</button>
                         <button class="btn-icon" id="settingsButton" title="Ustawienia">⚙️</button>
                         <button class="btn-icon btn-logout" id="logoutButton" title="Wyloguj się">🚪</button>
                     </div>
@@ -59,6 +60,8 @@
                 </div>
                 <div class="chat-actions">
                     <button class="btn-icon" id="addGroupMemberBtn" style="display: none;" title="Dodaj członków">➕</button>
+                    <button class="btn-icon" id="removeGroupMemberBtn" style="display: none;" title="Usuń użytkownika">➖</button>
+                    <button class="btn-icon" id="leaveGroupBtn" style="display: none;" title="Opuść grupę">✖️</button>
                     <button class="btn-icon" id="deleteGroupBtn" style="display: none;" title="Usuń grupę">🗑️</button>
                     <!-- Voice call button removed -->
                 </div>
@@ -91,6 +94,7 @@
                 <div class="modal-tabs">
                     <button class="tab-button active" data-tab="friend">Znajomy</button>
                     <button class="tab-button" data-tab="group">Grupa</button>
+                    <button class="tab-button" data-tab="requests">Zaproszenia</button>
                 </div>
                 <div class="tab-content active" id="friendTab">
                     <div class="input-group">
@@ -121,6 +125,15 @@
                         <input type="hidden" id="groupMembers">
                     </div>
                     <button class="btn-primary" id="addGroupBtn">Utwórz grupę</button>
+                </div>
+                <div class="tab-content" id="requestsTab">
+                    <div class="input-group">
+                        <label>Oczekujące zaproszenia</label>
+                        <div id="pendingRequestsList" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Zaproszenia będą wstrzykiwane tutaj -->
+                            <div style="color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center;">Brak zaproszeń.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

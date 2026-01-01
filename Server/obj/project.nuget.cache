@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "atOKfUhl7L8=",
+  "dgSpecHash": "+e+dX9ObKbY=",
   "success": true,
-  "projectFilePath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+  "projectFilePath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\user\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
@@ -39,7 +39,6 @@
     "C:\\Users\\user\\.nuget\\packages\\swashbuckle.aspnetcore.swagger\\6.5.0\\swashbuckle.aspnetcore.swagger.6.5.0.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\swashbuckle.aspnetcore.swaggergen\\6.5.0\\swashbuckle.aspnetcore.swaggergen.6.5.0.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\swashbuckle.aspnetcore.swaggerui\\6.5.0\\swashbuckle.aspnetcore.swaggerui.6.5.0.nupkg.sha512",
-    "C:\\Users\\user\\.nuget\\packages\\system.codedom\\4.4.0\\system.codedom.4.4.0.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\system.composition\\6.0.0\\system.composition.6.0.0.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\system.composition.attributedmodel\\6.0.0\\system.composition.attributedmodel.6.0.0.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\system.composition.convention\\6.0.0\\system.composition.convention.6.0.0.nupkg.sha512",
@@ -53,24 +52,24 @@
       "code": "NU1902",
       "level": "Warning",
       "message": "Pakiet „Microsoft.IdentityModel.JsonWebTokens” 7.0.3 ma znane umiarkowana luki w zabezpieczeniach o ważności, https://github.com/advisories/GHSA-59j7-ghrg-fj52",
-      "projectPath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+      "projectPath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+      "filePath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
       "libraryId": "Microsoft.IdentityModel.JsonWebTokens",
       "targetGraphs": [
-        "net10.0"
+        "net10.0-windows7.0"
       ]
     },
     {
       "code": "NU1902",
       "level": "Warning",
       "message": "Pakiet „System.IdentityModel.Tokens.Jwt” 7.0.3 ma znane umiarkowana luki w zabezpieczeniach o ważności, https://github.com/advisories/GHSA-59j7-ghrg-fj52",
-      "projectPath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+      "projectPath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+      "filePath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
       "libraryId": "System.IdentityModel.Tokens.Jwt",
       "targetGraphs": [
-        "net10.0"
+        "net10.0-windows7.0"
       ]
     }
   ]
