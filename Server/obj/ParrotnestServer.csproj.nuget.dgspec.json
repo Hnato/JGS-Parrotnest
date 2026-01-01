@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj": {}
+    "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\JGS-Parrotnest\\Server\\ParrotnestServer.csproj": {}
   },
   "projects": {
-    "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj": {
+    "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\JGS-Parrotnest\\Server\\ParrotnestServer.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+        "projectUniqueName": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\JGS-Parrotnest\\Server\\ParrotnestServer.csproj",
         "projectName": "ParrotnestServer",
-        "projectPath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\ParrotnestServer.csproj",
+        "projectPath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\JGS-Parrotnest\\Server\\ParrotnestServer.csproj",
         "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\Server\\obj\\",
+        "outputPath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 3 Parrotnest\\JGS-Parrotnest\\Server\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config"
