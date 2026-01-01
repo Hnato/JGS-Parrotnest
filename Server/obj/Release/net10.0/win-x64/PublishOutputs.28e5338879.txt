@@ -1,0 +1,5 @@
+C:\Users\user\Music\Komunikator JGS\Wzór 3 Parrotnest\Server\bin\Release\net10.0\win-x64\publish\appsettings.json
+C:\Users\user\Music\Komunikator JGS\Wzór 3 Parrotnest\Server\bin\Release\net10.0\win-x64\publish\ParrotnestServer.pdb
+C:\Users\user\Music\Komunikator JGS\Wzór 3 Parrotnest\Server\bin\Release\net10.0\win-x64\publish\aspnetcorev2_inprocess.dll
+C:\Users\user\Music\Komunikator JGS\Wzór 3 Parrotnest\Server\bin\Release\net10.0\win-x64\publish\e_sqlite3.dll
+C:\Users\user\Music\Komunikator JGS\Wzór 3 Parrotnest\Server\bin\Release\net10.0\win-x64\publish\ParrotnestServer.exe
