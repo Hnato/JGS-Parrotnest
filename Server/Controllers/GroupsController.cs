@@ -28,6 +28,46 @@ namespace ParrotnestServer.Controllers
             _hubContext = hubContext;
         }
 
+        [HttpGet("common/{targetUserId}")]
+        public async Task<IActionResult> GetCommonGroups(int targetUserId)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            if (userId == targetUserId) return BadRequest("Cannot check common groups with yourself.");
+
+            // My groups
+            var myGroupIds = await _context.GroupMembers
+                .Where(gm => gm.UserId == userId)
+                .Select(gm => gm.GroupId)
+                .ToListAsync();
+
+            // Target groups
+            var targetGroupIds = await _context.GroupMembers
+                .Where(gm => gm.UserId == targetUserId)
+                .Select(gm => gm.GroupId)
+                .ToListAsync();
+
+            var commonIds = myGroupIds.Intersect(targetGroupIds).ToList();
+
+            if (!commonIds.Any()) return Ok(new List<object>());
+
+            var commonGroups = await _context.Groups
+                .Where(g => commonIds.Contains(g.Id))
+                .Select(g => new
+                {
+                    g.Id,
+                    g.Name,
+                    g.AvatarUrl
+                })
+                .ToListAsync();
+
+            return Ok(commonGroups);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateGroup([FromBody] CreateGroupDto dto)
         {

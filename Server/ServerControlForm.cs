@@ -60,7 +60,7 @@ namespace ParrotnestServer
             pnlButtons.Controls.Add(btnCleanDB);
 
             btnOpenBrowser = CreateButton("Otwórz App", 480, Color.FromArgb(33, 150, 243)); // Blue
-            btnOpenBrowser.Click += (s, e) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("http://localhost:5000/login.php") { UseShellExecute = true });
+            btnOpenBrowser.Click += (s, e) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("http://localhost:6069/login.php") { UseShellExecute = true });
             pnlButtons.Controls.Add(btnOpenBrowser);
 
             // Log Area
@@ -153,9 +153,22 @@ namespace ParrotnestServer
                 try
                 {
                     string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parrotnest.db");
+                    string shmPath = dbPath + "-shm";
+                    string walPath = dbPath + "-wal";
+
+                    bool deleted = false;
+
                     if (File.Exists(dbPath))
                     {
                         File.Delete(dbPath);
+                        deleted = true;
+                    }
+                    
+                    if (File.Exists(shmPath)) File.Delete(shmPath);
+                    if (File.Exists(walPath)) File.Delete(walPath);
+
+                    if (deleted)
+                    {
                         Log("Baza danych została usunięta.");
                     }
                     else

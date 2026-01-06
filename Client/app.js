@@ -1,20 +1,32 @@
 (() => {
-    let origin = window.location.origin || 'http://localhost:5000';
-    try {
-        const u = new URL(origin);
-        if (u.hostname === '0.0.0.0') {
-            u.hostname = 'localhost';
-            origin = `${u.protocol}//${u.hostname}${u.port ? ':' + u.port : ''}`;
-        }
-    } catch {}
+    // Force port 6069 for the API server
+    const port = '6069';
+    const hostname = window.location.hostname === '0.0.0.0' ? 'localhost' : window.location.hostname;
+    // If we are running on the server port itself, use origin, otherwise default to localhost:6069
+    let origin = `http://${hostname}:${port}`;
+    
     window.__SERVER_BASE_DEFAULT__ = origin;
 })();
-const SERVER_BASE = (localStorage.getItem('serverBase') || window.__SERVER_BASE_DEFAULT__).replace(/\/+$/,'');
+
+// Force update if port 5000 is detected in storage
+let storedBase = localStorage.getItem('serverBase');
+if (storedBase && (storedBase.includes(':5000') || !storedBase.includes(':6069'))) {
+    localStorage.removeItem('serverBase');
+    storedBase = null;
+}
+
+const SERVER_BASE = (storedBase || window.__SERVER_BASE_DEFAULT__).replace(/\/+$/,'');
 const API_URL = `${SERVER_BASE}/api`;
 const HUB_URL = `${SERVER_BASE}/chatHub`;
 
 function resolveUrl(url) {
     if (!url) return null;
+    
+    // Fix legacy port 5000 in absolute URLs
+    if (typeof url === 'string' && url.includes(':5000')) {
+        url = url.replace(':5000', ':6069');
+    }
+
     if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
     
     // Normalize path separators
@@ -25,7 +37,7 @@ function resolveUrl(url) {
         url = '/' + url;
     }
 
-    // For uploads, always use the API server URL (port 5000)
+    // For uploads, always use the API server URL (port 6069)
     if (url.startsWith('/uploads/')) {
         const baseUrl = API_URL.replace(/\/api$/, ''); // Remove /api suffix
         return `${baseUrl}${url}`;
@@ -189,6 +201,8 @@ if (messageInput) {
         }
 
         let selectedImageFile = null;
+        let pendingGroupAvatarBlob = null;
+
         let currentChatId = null; // null = global
         let currentChatType = 'global'; // 'global', 'private', 'group'
         let friends = [];
@@ -198,8 +212,6 @@ if (messageInput) {
         let localStream = null;
         let remoteStream = null;
 
-        // Initialize SignalR
-        // Check if connection already exists to prevent re-declaration
         const notificationSound = new Audio('parrot.mp3');
         let originalTitle = document.title;
         let titleInterval = null;
@@ -226,7 +238,7 @@ if (messageInput) {
                 console.error('SignalR build error:', e);
                 showNotification('Błąd inicjalizacji połączenia.', 'error');
             }
-            // Load initial data
+
             loadFriends();
             loadGroups();
             loadPendingRequests();
@@ -292,14 +304,12 @@ if (messageInput) {
         if (groupAvatarInput && groupAvatarPreview) {
             groupAvatarInput.addEventListener('change', () => {
                 if (groupAvatarInput.files && groupAvatarInput.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        groupAvatarPreview.style.backgroundImage = `url('${e.target.result}')`;
-                        groupAvatarPreview.style.backgroundSize = 'cover';
-                        groupAvatarPreview.style.backgroundPosition = 'center';
-                        groupAvatarPreview.textContent = '';
-                    }
-                    reader.readAsDataURL(groupAvatarInput.files[0]);
+                     const file = groupAvatarInput.files[0];
+                     const url = URL.createObjectURL(file);
+                     groupAvatarPreview.style.backgroundImage = `url('${url}')`;
+                     groupAvatarPreview.style.backgroundSize = 'cover';
+                     groupAvatarPreview.style.backgroundPosition = 'center';
+                     groupAvatarPreview.textContent = '';
                 }
             });
         }
@@ -321,8 +331,23 @@ if (messageInput) {
                 if (e.target.files && e.target.files[0]) {
                     selectedImageFile = e.target.files[0];
                     if (attachmentPreview) {
-                        attachmentPreview.style.display = 'block';
-                        attachmentPreview.textContent = `Wybrano: ${selectedImageFile.name}`;
+                        const url = URL.createObjectURL(selectedImageFile);
+                        const sizeKb = Math.max(1, Math.round(selectedImageFile.size / 1024));
+                        attachmentPreview.style.display = 'flex';
+                        attachmentPreview.innerHTML = `
+                            <img src="${url}" class="attachment-thumb" alt="">
+                            <span class="attachment-name">${selectedImageFile.name} (${sizeKb} KB)</span>
+                            <button type="button" class="btn-icon attachment-remove" title="Usuń">×</button>
+                        `;
+                        const removeBtn = attachmentPreview.querySelector('.attachment-remove');
+                        if (removeBtn) {
+                            removeBtn.addEventListener('click', () => {
+                                selectedImageFile = null;
+                                imageInput.value = '';
+                                attachmentPreview.style.display = 'none';
+                                attachmentPreview.innerHTML = '';
+                            });
+                        }
                     }
                 }
             });
@@ -397,6 +422,12 @@ if (messageInput) {
                         console.error('Błąd wysyłania wiadomości:', err);
                         showNotification('Nie udało się wysłać wiadomości.', 'error');
                     }
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    messageForm.requestSubmit();
                 }
             });
         }
@@ -989,6 +1020,16 @@ if (messageInput) {
                 
                 const avatar = document.createElement('div');
                 avatar.className = 'avatar';
+                // Click to show profile
+                avatar.style.cursor = 'pointer';
+                avatar.onclick = (e) => {
+                    e.stopPropagation();
+                    const rAv = req.avatarUrl || req.AvatarUrl;
+                    const rId = req.requesterId || req.RequesterId;
+                    if (rId) {
+                        showUserProfile(rId, req.username || 'Użytkownik', rAv, false);
+                    }
+                };
                 {
                     const rAv = req.avatarUrl || req.AvatarUrl;
                     if (rAv) {
@@ -1365,6 +1406,38 @@ if (messageInput) {
                         
                         const avatarEl = document.createElement("div");
                         avatarEl.className = "message-avatar";
+                        // Profile Click
+                        avatarEl.style.cursor = 'pointer';
+                        avatarEl.onclick = (e) => {
+                            e.stopPropagation();
+                            // If senderId is available use it, else try to find user by name or fallback
+                            const sId = msg.senderId || msg.SenderId;
+                            // Check if own
+                            const isOwn = isOwnMessage;
+                            
+                            if (isOwn) {
+                                // For own profile, we might not need ID if we just show static "My Profile" info
+                                // But passing ID is safer if we want consistent API.
+                                // Current user data:
+                                const cUser = JSON.parse(localStorage.getItem('user'));
+                                showUserProfile(cUser.id, cUser.username, cUser.avatarUrl, true);
+                            } else {
+                                if (sId) {
+                                    showUserProfile(sId, senderUsername, senderAvatarUrl, false);
+                                } else {
+                                    // Fallback if no ID (shouldn't happen with DB)
+                                    // Try to find in friends list to get ID?
+                                    const f = friends.find(fr => fr.username === senderUsername);
+                                    if (f) {
+                                        showUserProfile(f.id, f.username, f.avatarUrl || f.AvatarUrl, false);
+                                    } else {
+                                        // Just show basic info without ID (no mutuals fetching possible)
+                                        showUserProfile(0, senderUsername, senderAvatarUrl, false);
+                                    }
+                                }
+                            }
+                        };
+
                         if (senderAvatarUrl) {
                             const url = resolveUrl(senderAvatarUrl);
                             avatarEl.style.backgroundImage = `url('${url}')`;
@@ -1621,9 +1694,13 @@ if (messageInput) {
                     if (response.ok) {
                         const data = await response.json();
                         const groupId = data.groupId;
-                        if (groupAvatarInput && groupAvatarInput.files && groupAvatarInput.files.length > 0 && groupId) {
+                        if ((pendingGroupAvatarBlob || (groupAvatarInput && groupAvatarInput.files && groupAvatarInput.files.length > 0)) && groupId) {
                             const formData = new FormData();
-                            formData.append('avatar', groupAvatarInput.files[0]);
+                            if (pendingGroupAvatarBlob) {
+                                formData.append('avatar', pendingGroupAvatarBlob, 'group_avatar.png');
+                            } else {
+                                formData.append('avatar', groupAvatarInput.files[0]);
+                            }
                             try {
                                 await fetch(`${API_URL}/groups/${groupId}/avatar`, {
                                     method: 'POST',
@@ -1638,6 +1715,7 @@ if (messageInput) {
                         if (groupNameInput) groupNameInput.value = '';
                         if (groupMembersInput) groupMembersInput.value = '';
                         if (groupAvatarInput) groupAvatarInput.value = '';
+                        pendingGroupAvatarBlob = null;
                         if (groupAvatarPreview) {
                             groupAvatarPreview.style.backgroundImage = '';
                             groupAvatarPreview.textContent = '';
@@ -1799,49 +1877,58 @@ if (messageInput) {
             });
         }
 
+
+
+        async function uploadUserAvatar(blob) {
+            const formData = new FormData();
+            formData.append('file', blob);
+
+            try {
+                const response = await fetch(`${API_URL}/users/avatar`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Update preview
+                    settingsAvatarPreview.style.backgroundImage = `url('${resolveUrl(data.url)}')`;
+                    settingsAvatarPreview.textContent = '';
+                    
+                    // Update main avatar immediately
+                    const mainAvatar = document.getElementById('userAvatar');
+                    if (mainAvatar) {
+                        mainAvatar.style.backgroundImage = `url('${resolveUrl(data.url)}')`;
+                        mainAvatar.textContent = '';
+                    }
+                    
+                    // Update local storage
+                    const currentUser = JSON.parse(localStorage.getItem('user'));
+                    currentUser.avatarUrl = data.url;
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                    
+                    showNotification('Zdjęcie profilowe zostało zaktualizowane.', 'success');
+                } else {
+                    await handleApiError(response, 'Błąd aktualizacji zdjęcia');
+                }
+            } catch (error) {
+                console.error('Error uploading avatar:', error);
+                showNotification('Wystąpił błąd podczas wysyłania zdjęcia.', 'error');
+            }
+        }
+
+
+
         // Handle Avatar File Selection
         if (avatarInput) {
             avatarInput.addEventListener('change', async (e) => {
                 if (e.target.files && e.target.files[0]) {
                     const file = e.target.files[0];
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    try {
-                        const response = await fetch(`${API_URL}/users/avatar`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: formData
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            // Update preview
-                            settingsAvatarPreview.style.backgroundImage = `url('${resolveUrl(data.url)}')`;
-                            settingsAvatarPreview.textContent = '';
-                            
-                            // Update main avatar immediately
-                            const mainAvatar = document.getElementById('userAvatar');
-                            if (mainAvatar) {
-                                mainAvatar.style.backgroundImage = `url('${resolveUrl(data.url)}')`;
-                                mainAvatar.textContent = '';
-                            }
-                            
-                            // Update local storage
-                            const currentUser = JSON.parse(localStorage.getItem('user'));
-                            currentUser.avatarUrl = data.url;
-                            localStorage.setItem('user', JSON.stringify(currentUser));
-                            
-                            showNotification('Zdjęcie profilowe zostało zaktualizowane.', 'success');
-                        } else {
-                            await handleApiError(response, 'Błąd aktualizacji zdjęcia');
-                        }
-                    } catch (error) {
-                        console.error('Error uploading avatar:', error);
-                        showNotification('Wystąpił błąd podczas wysyłania zdjęcia.', 'error');
-                    }
+                    // Direct upload without cropping
+                    uploadUserAvatar(file);
                 }
             });
         }
@@ -1930,6 +2017,152 @@ if (messageInput) {
 
 
 
+        // User Profile Logic
+        const userProfileModal = document.getElementById('userProfileModal');
+        const closeUserProfileModal = document.getElementById('closeUserProfileModal');
+
+        if (closeUserProfileModal && userProfileModal) {
+            closeUserProfileModal.onclick = () => {
+                userProfileModal.classList.remove('show');
+            };
+            // Close on click outside
+            userProfileModal.addEventListener('click', (e) => {
+                if (e.target === userProfileModal) {
+                    userProfileModal.classList.remove('show');
+                }
+            });
+        }
+
+        async function showUserProfile(userId, username, avatarUrl, isOwnProfile = false) {
+            if (!userProfileModal) return;
+
+            const avatarEl = document.getElementById('profileAvatar');
+            const usernameEl = document.getElementById('profileUsername');
+            const statusEl = document.getElementById('profileStatus');
+            const mutualsSection = document.getElementById('profileMutualsSection');
+            const mutualsList = document.getElementById('profileMutualFriendsList');
+            const serversList = document.getElementById('profileCommonServersList');
+
+            // Reset content
+            usernameEl.textContent = username;
+            
+            // Set Avatar
+            if (avatarUrl) {
+                avatarEl.style.backgroundImage = `url('${resolveUrl(avatarUrl)}')`;
+                avatarEl.style.backgroundSize = 'cover';
+                avatarEl.style.backgroundPosition = 'center';
+                avatarEl.textContent = '';
+            } else {
+                avatarEl.style.backgroundImage = 'none';
+                avatarEl.textContent = username.charAt(0).toUpperCase();
+                // Ensure default styling matches
+                avatarEl.style.backgroundColor = 'var(--accent-color)';
+                avatarEl.style.display = 'flex';
+                avatarEl.style.alignItems = 'center';
+                avatarEl.style.justifyContent = 'center';
+                avatarEl.style.color = 'white';
+                avatarEl.style.fontSize = '2rem';
+            }
+
+            // Status
+            // Try to find status from friends list if possible
+            let status = 'Niedostępny';
+            const friend = friends.find(f => (f.id == userId) || (f.Id == userId));
+            if (friend && (friend.isOnline || friend.IsOnline)) {
+                status = 'Dostępny';
+                statusEl.style.color = 'var(--accent-green)';
+            } else if (isOwnProfile) {
+                 status = 'Twój profil'; // Or fetch current status
+                 statusEl.style.color = 'var(--text-color)';
+            } else {
+                statusEl.style.color = 'var(--text-muted)';
+            }
+            statusEl.textContent = status;
+
+            // Mutuals & Commons
+            if (isOwnProfile) {
+                mutualsSection.style.display = 'none';
+            } else {
+                mutualsSection.style.display = 'block';
+                mutualsList.innerHTML = '<div style="padding:10px;">Ładowanie...</div>';
+                serversList.innerHTML = '<div style="padding:10px;">Ładowanie...</div>';
+
+                // Fetch Mutual Friends
+                try {
+                    const res = await fetch(`${API_URL}/friends/mutual/${userId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const mutuals = await res.json();
+                        renderProfileList(mutualsList, mutuals, 'Brak wspólnych znajomych.');
+                    } else {
+                        mutualsList.innerHTML = '<div style="color:var(--error-color)">Błąd ładowania</div>';
+                    }
+                } catch (e) {
+                    console.error(e);
+                    mutualsList.innerHTML = '<div style="color:var(--error-color)">Błąd</div>';
+                }
+
+                // Fetch Common Servers
+                try {
+                    const res = await fetch(`${API_URL}/groups/common/${userId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const commons = await res.json();
+                        renderProfileList(serversList, commons, 'Brak wspólnych serwerów.');
+                    } else {
+                        serversList.innerHTML = '<div style="color:var(--error-color)">Błąd ładowania</div>';
+                    }
+                } catch (e) {
+                    console.error(e);
+                    serversList.innerHTML = '<div style="color:var(--error-color)">Błąd</div>';
+                }
+            }
+
+            userProfileModal.classList.add('show');
+        }
+
+        function renderProfileList(container, items, emptyText) {
+            container.innerHTML = '';
+            if (!items || items.length === 0) {
+                container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">${emptyText}</div>`;
+                return;
+            }
+
+            items.forEach(item => {
+                const tile = document.createElement('div');
+                tile.className = 'friend-tile'; // Reuse existing class for styling
+                tile.style.cursor = 'default';
+                tile.style.minWidth = '80px';
+                
+                const av = document.createElement('div');
+                av.className = 'avatar';
+                const url = item.avatarUrl || item.AvatarUrl;
+                const name = item.username || item.Username || item.name || item.Name;
+                
+                if (url) {
+                    av.style.backgroundImage = `url('${resolveUrl(url)}')`;
+                    av.style.backgroundSize = 'cover';
+                    av.style.backgroundPosition = 'center';
+                } else {
+                    av.textContent = name.charAt(0).toUpperCase();
+                }
+
+                const label = document.createElement('span');
+                label.textContent = name;
+                label.style.fontSize = '0.8rem';
+                label.style.overflow = 'hidden';
+                label.style.textOverflow = 'ellipsis';
+                label.style.whiteSpace = 'nowrap';
+                label.style.maxWidth = '100%';
+
+                tile.appendChild(av);
+                tile.appendChild(label);
+                container.appendChild(tile);
+            });
+        }
+
         // WebRTC Call functionality removed
 
         // Start SignalR Connection with retry logic
@@ -1960,6 +2193,12 @@ if (messageInput) {
         loadGroups();
 
         await startConnection();
+        
+        setInterval(() => {
+            loadPendingRequests();
+            loadFriends();
+            loadGroups();
+        }, 5000);
 
         const imageModal = document.getElementById('image-modal');
         const modalImg = document.getElementById("img-preview");

@@ -40,7 +40,8 @@ namespace ParrotnestServer
                 builder.Services.AddSignalR();
                 builder.Services.AddSingleton<IUserTracker, UserTracker>();
 
-                var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+                var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parrotnest.db");
+                var connectionString = $"Data Source={dbPath}";
                 builder.Services.AddDbContext<ApplicationDbContext>(options =>
                     options.UseSqlite(connectionString));
 
@@ -95,8 +96,8 @@ namespace ParrotnestServer
                 }
 
                 _app.Urls.Clear();
-                _app.Urls.Add("http://0.0.0.0:5000");
-                _app.Urls.Add("http://localhost:5000");
+                _app.Urls.Add("http://0.0.0.0:6069");
+                _app.Urls.Add("http://localhost:6069");
 
                 if (_app.Environment.IsDevelopment())
                 {

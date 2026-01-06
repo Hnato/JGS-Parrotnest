@@ -51,7 +51,6 @@
     display: block;
 }
 
-/* Notification Badge Pulse */
 @keyframes pulse-red {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); }
     70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(255, 82, 82, 0); }
@@ -199,11 +198,20 @@
     height: 40px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-hover) 100%);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: 600;
+}
+
+.avatar-large {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .notification-badge {
@@ -222,6 +230,30 @@
     font-weight: bold;
 }
 
+.attachment-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    object-fit: cover;
+    margin-right: 8px;
+    border: 1px solid var(--border-color);
+}
+.attachment-name {
+    color: var(--accent-green);
+    font-size: 0.85rem;
+    margin-right: 8px;
+}
+.attachment-remove {
+    border: 1px solid var(--error-color);
+    background: transparent;
+    color: var(--error-color);
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+}
 .status-online {
     display: inline-block;
     margin-left: 6px;
@@ -958,4 +990,61 @@ body {
     font-size: 0.9rem;
     margin-top: 12px;
     display: none;
+}
+
+/* Crop Modal Styles */
+.crop-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #000;
+    border-radius: 8px;
+    cursor: grab;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.crop-container:active {
+    cursor: grabbing;
+}
+
+.crop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* Circular mask using radial gradient */
+    background: radial-gradient(circle, transparent 100px, rgba(0, 0, 0, 0.7) 101px);
+}
+
+.crop-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+    align-items: center;
+    width: 100%;
+}
+
+.zoom-slider {
+    width: 80%;
+    accent-color: var(--accent-green);
+    height: 6px;
+    background: var(--input-bg);
+    border-radius: 3px;
+    -webkit-appearance: none;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    cursor: pointer;
 }

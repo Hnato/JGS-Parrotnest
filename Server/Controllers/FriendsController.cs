@@ -111,6 +111,46 @@ namespace ParrotnestServer.Controllers
             return Ok(pending);
         }
 
+        [HttpGet("mutual/{targetUserId}")]
+        public async Task<IActionResult> GetMutualFriends(int targetUserId)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue) return Unauthorized();
+
+            if (userId == targetUserId) return BadRequest("Cannot check mutual friends with yourself.");
+
+            // My friends (IDs)
+            var myFriendIds = await _context.Friendships
+                .Where(f => f.Status == FriendshipStatus.Accepted && 
+                           (f.RequesterId == userId || f.AddresseeId == userId))
+                .Select(f => f.RequesterId == userId ? f.AddresseeId : f.RequesterId)
+                .ToListAsync();
+
+            // Target's friends (IDs)
+            var targetFriendIds = await _context.Friendships
+                .Where(f => f.Status == FriendshipStatus.Accepted && 
+                           (f.RequesterId == targetUserId || f.AddresseeId == targetUserId))
+                .Select(f => f.RequesterId == targetUserId ? f.AddresseeId : f.RequesterId)
+                .ToListAsync();
+
+            // Intersection
+            var mutualIds = myFriendIds.Intersect(targetFriendIds).ToList();
+
+            if (!mutualIds.Any()) return Ok(new List<object>());
+
+            var mutualFriends = await _context.Users
+                .Where(u => mutualIds.Contains(u.Id))
+                .Select(u => new 
+                {
+                    u.Id,
+                    u.Username,
+                    u.AvatarUrl
+                })
+                .ToListAsync();
+
+            return Ok(mutualFriends);
+        }
+
         [HttpPost("add")]
         public async Task<IActionResult> AddFriend([FromBody] AddFriendDto dto)
         {
@@ -220,17 +260,12 @@ namespace ParrotnestServer.Controllers
             return Ok(new { message = "Zaproszenie zostało zaakceptowane." });
         }
 
-        [HttpDelete("{friendId}")] // Can be used to reject request or remove friend
+        [HttpDelete("{friendId}")]
         public async Task<IActionResult> RemoveFriend(int friendId)
         {
             var userId = GetUserId();
             if (!userId.HasValue) return Unauthorized();
             
-            // Note: friendId here might be UserId or FriendshipId depending on route design.
-            // The route is {friendId}, so typically it's the User ID of the friend.
-            // But if we want to reject a request, we might pass FriendshipId.
-            // Let's assume friendId is the User ID of the friend/requester.
-
             var friendship = await _context.Friendships
                 .FirstOrDefaultAsync(f => 
                     (f.RequesterId == userId && f.AddresseeId == friendId) ||
@@ -238,7 +273,6 @@ namespace ParrotnestServer.Controllers
 
             if (friendship == null)
             {
-                // Try to see if friendId is actually FriendshipId (for rejecting requests)
                 friendship = await _context.Friendships.FindAsync(friendId);
                 if (friendship == null || (friendship.RequesterId != userId && friendship.AddresseeId != userId))
                 {

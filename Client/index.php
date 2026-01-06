@@ -119,7 +119,6 @@
                     <div class="input-group">
                         <label for="groupMembers">Członkowie (opcjonalnie)</label>
                         <div id="friendsSelectionList" style="display: flex; flex-wrap: wrap; gap: 10px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;">
-                            <!-- Tiles will be injected here -->
                             <div style="color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center;">Brak znajomych do wyboru.</div>
                         </div>
                         <input type="hidden" id="groupMembers">
@@ -130,7 +129,6 @@
                     <div class="input-group">
                         <label>Oczekujące zaproszenia</label>
                         <div id="pendingRequestsList" style="display: flex; flex-direction: column; gap: 10px;">
-                            <!-- Zaproszenia będą wstrzykiwane tutaj -->
                             <div style="color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center;">Brak zaproszeń.</div>
                         </div>
                     </div>
@@ -139,7 +137,6 @@
         </div>
     </div>
 
-    <!-- Modal for Adding Members to Existing Group -->
     <div id="addMemberModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -150,7 +147,6 @@
                 <div class="input-group">
                     <label>Wybierz znajomych</label>
                     <div id="addMemberSelectionList" style="display: flex; flex-wrap: wrap; gap: 10px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;">
-                         <!-- Tiles injected here -->
                     </div>
                 </div>
                 <button class="btn-primary" id="confirmAddMemberBtn">Dodaj wybrane osoby</button>
@@ -158,7 +154,6 @@
         </div>
     </div>
 
-    <!-- Modal for Settings -->
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -194,7 +189,36 @@
         </div>
     </div>
 
-    <!-- Image Preview Modal (Lightbox) -->
+    <div id="userProfileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Profil użytkownika</h3>
+                <button class="modal-close" id="closeUserProfileModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 20px;">
+                    <div class="avatar-large" id="profileAvatar"></div>
+                    <h2 id="profileUsername" style="margin: 0;"></h2>
+                    <span id="profileStatus" class="status-badge"></span>
+                </div>
+                
+                <div id="profileMutualsSection" style="display: none; width: 100%;">
+                    <div class="input-group">
+                        <label>Wspólni znajomi</label>
+                        <div id="profileMutualFriendsList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;">
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Wspólne serwery</label>
+                        <div id="profileCommonServersList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="image-modal" class="image-modal">
         <span class="close-image-modal">&times;</span>
         <img class="image-modal-content" id="img-preview">
