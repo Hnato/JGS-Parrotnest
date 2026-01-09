@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
@@ -9,85 +9,74 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script>
-        // HTTPS redirect removed for compatibility
     </script>
 </head>
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-container" id="logoContainer" title="Kliknij, aby usłyszeć papugę!">
+                <div class="logo-container" id="logoContainer" title="Kliknij, aby usĹ‚yszeÄ‡ papugÄ™!">
                     <img src="logo.png" alt="Logo" class="header-logo">
                     <h2>Parrotnest</h2>
                 </div>
             </div>
-            
                 <div class="chat-list">
-
                 <div class="chat-item active" id="globalChatItem">
                     <div class="avatar"></div>
                     <div class="chat-info">
-                        <h4>Ogólny</h4>
+                        <h4>OgĂłlny</h4>
                     </div>
                 </div>
             </div>
-            
             <div class="sidebar-footer">
-                <button class="btn-add-sidebar" id="addFriendGroupButton" title="Dodaj znajomego lub grupę">+</button>
+                <button class="btn-add-sidebar" id="addFriendGroupButton" title="Dodaj znajomego lub grupÄ™">+</button>
                 <div class="user-profile">
                     <div class="user-info">
                         <div class="avatar" id="userAvatar"></div>
                         <div>
-                            <h4 id="userName">Ładowanie...</h4>
+                            <h4 id="userName">Ĺadowanie...</h4>
                             <span id="userStatus" class="status-online">Online</span>
                         </div>
                     </div>
                     <div class="user-actions">
-                        <button class="btn-icon" id="notificationButton" title="Włącz/Wyłącz powiadomienia">🔔</button>
-                        <button class="btn-icon" id="settingsButton" title="Ustawienia">⚙️</button>
-                        <button class="btn-icon btn-logout" id="logoutButton" title="Wyloguj się">🚪</button>
+                        <button class="btn-icon" id="notificationButton" title="WĹ‚Ä…cz/WyĹ‚Ä…cz powiadomienia">đź””</button>
+                        <button class="btn-icon" id="settingsButton" title="Ustawienia">âš™ď¸Ź</button>
+                        <button class="btn-icon btn-logout" id="logoutButton" title="Wyloguj siÄ™">đźšŞ</button>
                     </div>
                 </div>
             </div>
         </aside>
-
-
         <main class="chat-area">
             <div class="chat-header">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div class="avatar"></div>
-                    <h3>Ogólny</h3>
+                    <h3>OgĂłlny</h3>
                 </div>
                 <div class="chat-actions">
-                    <button class="btn-icon" id="addGroupMemberBtn" style="display: none;" title="Dodaj członków">➕</button>
-                    <button class="btn-icon" id="removeGroupMemberBtn" style="display: none;" title="Usuń użytkownika">➖</button>
-                    <button class="btn-icon" id="leaveGroupBtn" style="display: none;" title="Opuść grupę">✖️</button>
-                    <button class="btn-icon" id="deleteGroupBtn" style="display: none;" title="Usuń grupę">🗑️</button>
-                    <!-- Voice call button removed -->
+                    <button class="btn-icon" id="addGroupMemberBtn" style="display: none;" title="Dodaj czĹ‚onkĂłw">âž•</button>
+                    <button class="btn-icon" id="removeGroupMemberBtn" style="display: none;" title="UsuĹ„ uĹĽytkownika">âž–</button>
+                    <button class="btn-icon" id="leaveGroupBtn" style="display: none;" title="OpuĹ›Ä‡ grupÄ™">âś–ď¸Ź</button>
+                    <button class="btn-icon" id="deleteGroupBtn" style="display: none;" title="UsuĹ„ grupÄ™">đź—‘ď¸Ź</button>
                 </div>
             </div>
-
             <div class="messages-container" id="chat-messages">
                 <div class="message received">
-                    Witaj w Parrotnest! To jest początek twojej konwersacji.
+                    Witaj w Parrotnest! To jest poczÄ…tek twojej konwersacji.
                 </div>
             </div>
-
             <form class="chat-input-area" id="messageForm">
                 <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                <button type="button" class="btn-icon" id="attachButton" title="Załącz plik">📎</button>
+                <button type="button" class="btn-icon" id="attachButton" title="ZaĹ‚Ä…cz plik">đź“Ž</button>
                 <div id="attachmentPreview" style="display: none; margin-right: 10px; color: var(--accent-green);"></div>
-                <input type="text" id="messageInput" placeholder="Napisz wiadomość...">
-                <button type="submit" id="sendButton" class="btn-send" title="Wyślij wiadomość">➤</button>
+                <input type="text" id="messageInput" placeholder="Napisz wiadomoĹ›Ä‡...">
+                <button type="submit" id="sendButton" class="btn-send" title="WyĹ›lij wiadomoĹ›Ä‡">âž¤</button>
             </form>
         </main>
     </div>
-
-    <!-- Modal for adding friends/groups -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Dodaj znajomego lub grupę</h3>
+                <h3>Dodaj znajomego lub grupÄ™</h3>
                 <button class="modal-close" id="closeModal">&times;</button>
             </div>
             <div class="modal-body">
@@ -98,8 +87,8 @@
                 </div>
                 <div class="tab-content active" id="friendTab">
                     <div class="input-group">
-                        <label for="friendUsername">Nazwa użytkownika lub email</label>
-                        <input type="text" id="friendUsername" placeholder="Wpisz nazwę użytkownika lub email">
+                        <label for="friendUsername">Nazwa uĹĽytkownika lub email</label>
+                        <input type="text" id="friendUsername" placeholder="Wpisz nazwÄ™ uĹĽytkownika lub email">
                     </div>
                     <button class="btn-primary" id="addFriendBtn">Dodaj znajomego</button>
                 </div>
@@ -108,39 +97,38 @@
                         <label>Ikona grupy</label>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div class="avatar" id="groupAvatarPreview" style="cursor: pointer; background-color: var(--accent-green);"></div>
-                            <button class="btn-secondary" id="changeGroupAvatarBtn" style="font-size: 0.8rem; padding: 5px 10px;">Wybierz ikonę</button>
+                            <button class="btn-secondary" id="changeGroupAvatarBtn" style="font-size: 0.8rem; padding: 5px 10px;">Wybierz ikonÄ™</button>
                             <input type="file" id="groupAvatarInput" accept="image/*" style="display: none;">
                         </div>
                     </div>
                     <div class="input-group">
                         <label for="groupName">Nazwa grupy</label>
-                        <input type="text" id="groupName" placeholder="Wpisz nazwę grupy">
+                        <input type="text" id="groupName" placeholder="Wpisz nazwÄ™ grupy">
                     </div>
                     <div class="input-group">
-                        <label for="groupMembers">Członkowie (opcjonalnie)</label>
+                        <label for="groupMembers">CzĹ‚onkowie (opcjonalnie)</label>
                         <div id="friendsSelectionList" style="display: flex; flex-wrap: wrap; gap: 10px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;">
                             <div style="color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center;">Brak znajomych do wyboru.</div>
                         </div>
                         <input type="hidden" id="groupMembers">
                     </div>
-                    <button class="btn-primary" id="addGroupBtn">Utwórz grupę</button>
+                    <button class="btn-primary" id="addGroupBtn">UtwĂłrz grupÄ™</button>
                 </div>
                 <div class="tab-content" id="requestsTab">
                     <div class="input-group">
-                        <label>Oczekujące zaproszenia</label>
+                        <label>OczekujÄ…ce zaproszenia</label>
                         <div id="pendingRequestsList" style="display: flex; flex-direction: column; gap: 10px;">
-                            <div style="color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center;">Brak zaproszeń.</div>
+                            <div style="color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center;">Brak zaproszeĹ„.</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
     <div id="addMemberModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Dodaj członków do grupy</h3>
+                <h3>Dodaj czĹ‚onkĂłw do grupy</h3>
                 <button class="modal-close" id="closeAddMemberModal">&times;</button>
             </div>
             <div class="modal-body">
@@ -153,7 +141,6 @@
             </div>
         </div>
     </div>
-
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -163,36 +150,31 @@
             <div class="modal-body">
                 <div class="settings-avatar-section">
                     <div class="avatar-large" id="settingsAvatarPreview"></div>
-                    <button class="btn-secondary" id="changeAvatarBtn">Zmień zdjęcie</button>
+                    <button class="btn-secondary" id="changeAvatarBtn">ZmieĹ„ zdjÄ™cie</button>
                     <input type="file" id="avatarInput" accept="image/*" style="display: none;">
                 </div>
-                
                 <form id="settingsForm">
                     <div class="input-group">
-                        <label for="settingsUsername">Nazwa użytkownika</label>
+                        <label for="settingsUsername">Nazwa uĹĽytkownika</label>
                         <input type="text" id="settingsUsername" name="username" placeholder="Twoja nazwa">
                     </div>
-
                     <div class="input-group">
                         <label for="settingsEmail">Adres e-mail</label>
-                        <input type="email" id="settingsEmail" name="email" placeholder="Twój e-mail" disabled style="opacity: 0.7;">
+                        <input type="email" id="settingsEmail" name="email" placeholder="TwĂłj e-mail" disabled style="opacity: 0.7;">
                     </div>
-
                     <div class="input-group">
-                        <label for="settingsPassword">Nowe hasło (opcjonalnie)</label>
-                        <input type="password" id="settingsPassword" name="password" placeholder="Zostaw puste aby nie zmieniać">
+                        <label for="settingsPassword">Nowe hasĹ‚o (opcjonalnie)</label>
+                        <input type="password" id="settingsPassword" name="password" placeholder="Zostaw puste aby nie zmieniaÄ‡">
                     </div>
-
                     <button type="submit" class="btn-primary" id="saveSettingsBtn">Zapisz zmiany</button>
                 </form>
             </div>
         </div>
     </div>
-
     <div id="userProfileModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Profil użytkownika</h3>
+                <h3>Profil uĹĽytkownika</h3>
                 <button class="modal-close" id="closeUserProfileModal">&times;</button>
             </div>
             <div class="modal-body">
@@ -201,16 +183,14 @@
                     <h2 id="profileUsername" style="margin: 0;"></h2>
                     <span id="profileStatus" class="status-badge"></span>
                 </div>
-                
                 <div id="profileMutualsSection" style="display: none; width: 100%;">
                     <div class="input-group">
-                        <label>Wspólni znajomi</label>
+                        <label>WspĂłlni znajomi</label>
                         <div id="profileMutualFriendsList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;">
                         </div>
                     </div>
-                    
                     <div class="input-group">
-                        <label>Wspólne serwery</label>
+                        <label>WspĂłlne serwery</label>
                         <div id="profileCommonServersList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;">
                         </div>
                     </div>
@@ -218,13 +198,11 @@
             </div>
         </div>
     </div>
-
     <div id="image-modal" class="image-modal">
         <span class="close-image-modal">&times;</span>
         <img class="image-modal-content" id="img-preview">
         <div id="caption"></div>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>

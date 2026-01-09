@@ -1,9 +1,8 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using System.Threading.Tasks;
-
 namespace ParrotnestServer
 {
     public class ServerControlForm : Form
@@ -15,13 +14,11 @@ namespace ParrotnestServer
         private RichTextBox txtLog;
         private ServerHost _serverHost;
         private bool _isRunning = false;
-
         public ServerControlForm()
         {
             InitializeComponent();
             _serverHost = new ServerHost(Log);
         }
-
         private void InitializeComponent()
         {
             this.Text = "Parrotnest Server Manager";
@@ -30,40 +27,30 @@ namespace ParrotnestServer
             this.ForeColor = Color.White;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-
-            // Header
             Label lblTitle = new Label();
             lblTitle.Text = "Parrotnest Server";
             lblTitle.Font = new Font("Segoe UI", 24, FontStyle.Bold);
             lblTitle.Location = new Point(20, 20);
             lblTitle.AutoSize = true;
-            lblTitle.ForeColor = Color.FromArgb(76, 175, 80); // Green accent
+            lblTitle.ForeColor = Color.FromArgb(76, 175, 80);
             this.Controls.Add(lblTitle);
-
-            // Buttons Panel
             Panel pnlButtons = new Panel();
             pnlButtons.Location = new Point(20, 80);
             pnlButtons.Size = new Size(740, 60);
             this.Controls.Add(pnlButtons);
-
             btnStart = CreateButton("Uruchom Serwer", 0, Color.FromArgb(76, 175, 80));
             btnStart.Click += async (s, e) => await StartServer();
             pnlButtons.Controls.Add(btnStart);
-
-            btnStop = CreateButton("Zatrzymaj", 160, Color.FromArgb(244, 67, 54)); // Red
+            btnStop = CreateButton("Zatrzymaj", 160, Color.FromArgb(244, 67, 54));
             btnStop.Click += async (s, e) => await StopServer();
             btnStop.Enabled = false;
             pnlButtons.Controls.Add(btnStop);
-
-            btnCleanDB = CreateButton("Wyczyść Bazę", 320, Color.FromArgb(255, 152, 0)); // Orange
+            btnCleanDB = CreateButton("WyczyĹ›Ä‡ BazÄ™", 320, Color.FromArgb(255, 152, 0));
             btnCleanDB.Click += BtnCleanDB_Click;
             pnlButtons.Controls.Add(btnCleanDB);
-
-            btnOpenBrowser = CreateButton("Otwórz App", 480, Color.FromArgb(33, 150, 243)); // Blue
+            btnOpenBrowser = CreateButton("OtwĂłrz App", 480, Color.FromArgb(33, 150, 243));
             btnOpenBrowser.Click += (s, e) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("http://localhost:6069/login.php") { UseShellExecute = true });
             pnlButtons.Controls.Add(btnOpenBrowser);
-
-            // Log Area
             txtLog = new RichTextBox();
             txtLog.Location = new Point(20, 160);
             txtLog.Size = new Size(740, 380);
@@ -74,7 +61,6 @@ namespace ParrotnestServer
             txtLog.BorderStyle = BorderStyle.None;
             this.Controls.Add(txtLog);
         }
-
         private Button CreateButton(string text, int x, Color backColor)
         {
             Button btn = new Button();
@@ -89,7 +75,6 @@ namespace ParrotnestServer
             btn.FlatAppearance.BorderSize = 0;
             return btn;
         }
-
         private void Log(string message)
         {
             if (txtLog.InvokeRequired)
@@ -100,14 +85,11 @@ namespace ParrotnestServer
             txtLog.AppendText(message + Environment.NewLine);
             txtLog.ScrollToCaret();
         }
-
         private async Task StartServer()
         {
             if (_isRunning) return;
-            
             btnStart.Enabled = false;
             btnCleanDB.Enabled = false;
-            
             try
             {
                 await _serverHost.StartAsync();
@@ -116,16 +98,14 @@ namespace ParrotnestServer
             }
             catch (Exception ex)
             {
-                Log($"Błąd uruchamiania: {ex.Message}");
+                Log($"BĹ‚Ä…d uruchamiania: {ex.Message}");
                 btnStart.Enabled = true;
                 btnCleanDB.Enabled = true;
             }
         }
-
         private async Task StopServer()
         {
             if (!_isRunning) return;
-
             btnStop.Enabled = false;
             try
             {
@@ -136,40 +116,34 @@ namespace ParrotnestServer
             }
             catch (Exception ex)
             {
-                Log($"Błąd zatrzymywania: {ex.Message}");
+                Log($"BĹ‚Ä…d zatrzymywania: {ex.Message}");
             }
         }
-
         private void BtnCleanDB_Click(object? sender, EventArgs e)
         {
             if (_isRunning)
             {
-                MessageBox.Show("Zatrzymaj serwer przed czyszczeniem bazy!", "Ostrzeżenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Zatrzymaj serwer przed czyszczeniem bazy!", "OstrzeĹĽenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-
-            if (MessageBox.Show("Czy na pewno chcesz usunąć całą bazę danych? Ta operacja jest nieodwracalna.", "Potwierdzenie", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (MessageBox.Show("Czy na pewno chcesz usunÄ…Ä‡ caĹ‚Ä… bazÄ™ danych? Ta operacja jest nieodwracalna.", "Potwierdzenie", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
             {
                 try
                 {
                     string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parrotnest.db");
                     string shmPath = dbPath + "-shm";
                     string walPath = dbPath + "-wal";
-
                     bool deleted = false;
-
                     if (File.Exists(dbPath))
                     {
                         File.Delete(dbPath);
                         deleted = true;
                     }
-                    
                     if (File.Exists(shmPath)) File.Delete(shmPath);
                     if (File.Exists(walPath)) File.Delete(walPath);
-
                     if (deleted)
                     {
-                        Log("Baza danych została usunięta.");
+                        Log("Baza danych zostaĹ‚a usuniÄ™ta.");
                     }
                     else
                     {
@@ -178,11 +152,10 @@ namespace ParrotnestServer
                 }
                 catch (Exception ex)
                 {
-                    Log($"Błąd usuwania bazy: {ex.Message}");
+                    Log($"BĹ‚Ä…d usuwania bazy: {ex.Message}");
                 }
             }
         }
-
         protected override async void OnFormClosing(FormClosingEventArgs e)
         {
             if (_isRunning)

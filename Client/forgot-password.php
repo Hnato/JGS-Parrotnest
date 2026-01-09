@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parrotnest - Reset hasła</title>
+    <title>Parrotnest - Reset hasĹ‚a</title>
     <link rel="icon" href="logo.png" type="image/png">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -14,27 +14,23 @@
             <img src="logo.png" alt="Parrotnest Logo" class="logo">
             <h1>Parrotnest</h1>
         </div>
-        
         <div class="login-card">
-            <h2>Zresetuj hasło</h2>
+            <h2>Zresetuj hasĹ‚o</h2>
             <p style="text-align: center; color: var(--text-muted); margin-bottom: 20px;">
-                Podaj swój adres e-mail, a wyślemy Ci instrukcje resetowania hasła.
+                Podaj swĂłj adres e-mail, a wyĹ›lemy Ci instrukcje resetowania hasĹ‚a.
             </p>
             <form id="forgotPasswordForm">
                 <div class="input-group">
                     <label for="email">Adres e-mail</label>
-                    <input type="email" id="email" name="email" required placeholder="Wpisz swój e-mail">
+                    <input type="email" id="email" name="email" required placeholder="Wpisz swĂłj e-mail">
                 </div>
-                
-                <button type="submit" class="btn-primary">Wyślij link resetujący</button>
+                <button type="submit" class="btn-primary">WyĹ›lij link resetujÄ…cy</button>
             </form>
-            
             <div class="footer-links">
-                <p>Pamiętasz hasło? <a href="login.php">Wróć do logowania</a></p>
+                <p>PamiÄ™tasz hasĹ‚o? <a href="login.php">WrĂłÄ‡ do logowania</a></p>
             </div>
         </div>
     </div>
-
     <script src="app.js"></script>
     <script src="particles.js"></script>
 </body>

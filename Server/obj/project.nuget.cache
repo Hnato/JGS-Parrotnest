@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "d4A98rSRicw=",
+  "dgSpecHash": "YEhnqh1Z0Vk=",
   "success": true,
   "projectFilePath": "C:\\Users\\user\\Music\\Komunikator JGS\\Wzór 4 Parrotnest\\Server\\ParrotnestServer.csproj",
   "expectedPackageFiles": [
@@ -29,7 +29,6 @@
     "C:\\Users\\user\\.nuget\\packages\\microsoft.identitymodel.protocols\\7.0.3\\microsoft.identitymodel.protocols.7.0.3.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\microsoft.identitymodel.protocols.openidconnect\\7.0.3\\microsoft.identitymodel.protocols.openidconnect.7.0.3.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\microsoft.identitymodel.tokens\\7.0.3\\microsoft.identitymodel.tokens.7.0.3.nupkg.sha512",
-    "C:\\Users\\user\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.1\\microsoft.net.illink.tasks.10.0.1.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\microsoft.openapi\\1.2.3\\microsoft.openapi.1.2.3.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\mono.texttemplating\\2.2.1\\mono.texttemplating.2.2.1.nupkg.sha512",
     "C:\\Users\\user\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.10\\sqlitepclraw.bundle_e_sqlite3.2.1.10.nupkg.sha512",

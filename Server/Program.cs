@@ -1,6 +1,5 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
-
 namespace ParrotnestServer
 {
     internal static class Program

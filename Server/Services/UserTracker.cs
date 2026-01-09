@@ -1,5 +1,4 @@
-using System.Collections.Concurrent;
-
+﻿using System.Collections.Concurrent;
 namespace ParrotnestServer.Services
 {
     public interface IUserTracker
@@ -9,22 +8,16 @@ namespace ParrotnestServer.Services
         Task<int[]> GetOnlineUsers();
         Task<bool> IsUserOnline(int userId);
     }
-
     public class UserTracker : IUserTracker
     {
-        // ConnectionId -> UserId
         private readonly ConcurrentDictionary<string, int> _connections = new();
-        
-        // UserId -> ConnectionCount
         private readonly ConcurrentDictionary<int, int> _userConnections = new();
-
         public Task UserConnected(string connectionId, int userId)
         {
             _connections.TryAdd(connectionId, userId);
             _userConnections.AddOrUpdate(userId, 1, (key, count) => count + 1);
             return Task.CompletedTask;
         }
-
         public Task UserDisconnected(string connectionId)
         {
             if (_connections.TryRemove(connectionId, out int userId))
@@ -37,12 +30,10 @@ namespace ParrotnestServer.Services
             }
             return Task.CompletedTask;
         }
-
         public Task<int[]> GetOnlineUsers()
         {
             return Task.FromResult(_userConnections.Keys.ToArray());
         }
-
         public Task<bool> IsUserOnline(int userId)
         {
             return Task.FromResult(_userConnections.ContainsKey(userId));

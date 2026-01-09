@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.StaticFiles;
@@ -11,40 +11,32 @@ using ParrotnestServer.Data;
 using ParrotnestServer.Hubs;
 using ParrotnestServer.Services;
 using System.Text;
-
 namespace ParrotnestServer
 {
     public class ServerHost
     {
         private WebApplication? _app;
         private readonly Action<string> _logAction;
-
         public ServerHost(Action<string> logAction)
         {
             _logAction = logAction;
         }
-
         public async Task StartAsync()
         {
             try
             {
                 var builder = WebApplication.CreateBuilder(new string[] { });
-
-                // Configure Logging to GUI
                 builder.Logging.ClearProviders();
                 builder.Logging.AddProvider(new GuiLoggerProvider(_logAction));
-
                 builder.Services.AddControllers();
                 builder.Services.AddEndpointsApiExplorer();
                 builder.Services.AddSwaggerGen();
                 builder.Services.AddSignalR();
                 builder.Services.AddSingleton<IUserTracker, UserTracker>();
-
                 var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parrotnest.db");
                 var connectionString = $"Data Source={dbPath}";
                 builder.Services.AddDbContext<ApplicationDbContext>(options =>
                     options.UseSqlite(connectionString));
-
                 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyForParrotnestApplication123!";
                 builder.Services.AddAuthentication(options =>
                 {
@@ -61,7 +53,6 @@ namespace ParrotnestServer
                         ValidateIssuerSigningKey = true,
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
                     };
-                    
                     options.Events = new JwtBearerEvents
                     {
                         OnMessageReceived = context =>
@@ -76,7 +67,6 @@ namespace ParrotnestServer
                         }
                     };
                 });
-
                 builder.Services.AddCors(options =>
                 {
                     options.AddPolicy("AllowAll", builder =>
@@ -86,28 +76,21 @@ namespace ParrotnestServer
                                .AllowAnyHeader();
                     });
                 });
-
                 _app = builder.Build();
-
                 using (var scope = _app.Services.CreateScope())
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                     dbContext.Database.EnsureCreated();
                 }
-
                 _app.Urls.Clear();
                 _app.Urls.Add("http://0.0.0.0:6069");
                 _app.Urls.Add("http://localhost:6069");
-
                 if (_app.Environment.IsDevelopment())
                 {
                     _app.UseSwagger();
                     _app.UseSwaggerUI();
                 }
-
                 _app.UseCors("AllowAll");
-
-                // Static files logic
                 string GetClientPath(string startPath)
                 {
                     var current = startPath;
@@ -121,10 +104,8 @@ namespace ParrotnestServer
                     }
                     return Path.GetFullPath(Path.Combine(startPath, "..", "Client"));
                 }
-
                 var clientPath = GetClientPath(builder.Environment.ContentRootPath);
                 builder.Configuration["ClientPath"] = clientPath;
-
                 if (Directory.Exists(clientPath))
                 {
                     var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientPath);
@@ -133,10 +114,8 @@ namespace ParrotnestServer
                     defaultFilesOptions.DefaultFileNames.Add("login.php");
                     defaultFilesOptions.DefaultFileNames.Add("index.php");
                     _app.UseDefaultFiles(defaultFilesOptions);
-
                     var provider = new FileExtensionContentTypeProvider();
                     provider.Mappings[".php"] = "text/html";
-
                     _app.UseStaticFiles(new StaticFileOptions
                     {
                         FileProvider = fileProvider,
@@ -148,24 +127,20 @@ namespace ParrotnestServer
                     _logAction($"Warning: Client directory not found at {clientPath}");
                     _app.UseStaticFiles();
                 }
-
                 _app.UseAuthentication();
                 _app.UseAuthorization();
-
                 _app.MapControllers();
                 _app.MapHub<ChatHub>("/chatHub");
-
                 _logAction("Serwer uruchamiany...");
                 await _app.StartAsync();
-                _logAction($"Serwer działa na: {_app.Urls.FirstOrDefault()}");
+                _logAction($"Serwer dziaĹ‚a na: {_app.Urls.FirstOrDefault()}");
             }
             catch (Exception ex)
             {
-                _logAction($"Błąd krytyczny startu: {ex.Message}");
+                _logAction($"BĹ‚Ä…d krytyczny startu: {ex.Message}");
                 throw;
             }
         }
-
         public async Task StopAsync()
         {
             if (_app != null)
@@ -178,7 +153,6 @@ namespace ParrotnestServer
             }
         }
     }
-
     public class GuiLoggerProvider : ILoggerProvider
     {
         private readonly Action<string> _logAction;
@@ -186,7 +160,6 @@ namespace ParrotnestServer
         public ILogger CreateLogger(string categoryName) => new GuiLogger(categoryName, _logAction);
         public void Dispose() { }
     }
-
     public class GuiLogger : ILogger
     {
         private readonly string _categoryName;
@@ -203,7 +176,6 @@ namespace ParrotnestServer
             var message = formatter(state, exception);
             if (!string.IsNullOrEmpty(message))
             {
-                // Filter out some verbose logs if needed
                 if (_categoryName.StartsWith("Microsoft.AspNetCore.Hosting"))
                     _logAction($"[{DateTime.Now:HH:mm:ss}] {message}");
             }
