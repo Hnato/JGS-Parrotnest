@@ -6,25 +6,22 @@ if (typeof window.resolveUrl === 'undefined') {
     window.resolveUrl = function(url) {
         if (!url) return null;
         if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-        
-        // Handle absolute URLs that point to localhost when we are on 0.0.0.0 or vice versa
-        if (url.startsWith('http')) {
-            const currentOrigin = window.location.origin;
-            // If current origin is 0.0.0.0 but url is localhost
-            if (currentOrigin.includes('0.0.0.0') && url.includes('localhost')) {
-                return url.replace('localhost', '0.0.0.0');
+        try {
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                const target = new URL(url);
+                const current = new URL(window.location.origin);
+                if (target.hostname === 'localhost' || target.hostname === '0.0.0.0') {
+                    target.hostname = current.hostname;
+                    target.port = current.port || target.port;
+                    target.protocol = current.protocol;
+                    return target.toString();
+                }
+                return url;
             }
-            // If current origin is localhost but url is 0.0.0.0
-            if (currentOrigin.includes('localhost') && url.includes('0.0.0.0')) {
-                return url.replace('0.0.0.0', 'localhost');
-            }
-            return url;
+        } catch (e) {
         }
-
         url = url.replace(/\\/g, '/');
         if (!url.startsWith('/')) url = '/' + url;
-        // Use window.location.origin to always respect the current browser context (0.0.0.0 or localhost)
-        // instead of relying on API_URL which might have been hardcoded/modified
         const baseUrl = window.location.origin;
         return `${baseUrl}${url}`;
     };
@@ -225,7 +222,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         if (emojiPicker) {
-            const emojiChars = "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😍 😘 😗 😜 🤪 🤩 😎 😏 😡 😢 😭 😱 🤔 🙄 😴 🤤 😈 👿 👍 👎 👊 🤝 🙌 👀 ❤️ 💔 💩 🔥 ⭐ ✨ 🎉 🎁 🎵 💀 🤡 🤠 🥳 🥺 🤥 🤫 🤭 🧐 🤓 🤯 🤪 🤬 🤮 🤢 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 👻 👽 👾 🤖 😺 😸 😹 😻 😼 😽 🙀 😿 😾 🙈 🙉 🙊 💋 💌 💘 💝 💖 💗 💓 💞 💕 💟 ❣️ 💔 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💯 💢 💥 💫 💦 💨 🕳️ 💣 💬 👁️‍🗨️ 🗨️ 🗯️ 💭 💤 👋 🤚 🖐️ ✋ 🖖 👌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 👐 🤲 🤝 🙏 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 🦻 👃 🧠 🦷 🦴 👀 👁️ 👅 👄".split(" ");
+            const emojiChars = (
+                "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😉 🙂 🙃 😍 😘 😗 😜 🤪 🤩 😎 😏 " +
+                "😡 😠 😢 😭 😱 🤔 🙄 😴 😇 😈 👿 " +
+                "😺 😸 😹 😻 🙀 😿 😾 " +
+                "👍 👎 👊 🤝 🙌 👏 👋 🤚 ✋ 🤞 🤟 🤘 🙏 " +
+                "❤️ 💔 💕 💖 💙 💚 💛 💜 🖤 💩 🔥 ⭐ ✨ 🎉 🎁 🎵 💀 🤡 🥳 🥺"
+            ).split(" ");
             emojiChars.forEach(ch => {
                 if (!ch) return;
                 const btn = document.createElement('button');
@@ -1908,21 +1911,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (h4) h4.textContent = 'Użytkownicy';
                 }
                 if (groupsContainer) {
-                    if (group && Array.isArray(group.members) && group.members.length > 0) {
-                        renderProfileList(groupsContainer, group.members, 'Brak uczestników.');
-                    } else {
-                        // Fallback: try to load groups again to ensure we have the latest data
-                        // The endpoint /api/groups/{id} might not be allowed (405), so we rely on the main list
-                        if (!group || !group.members) {
-                             groupsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Ładowanie listy...</div>';
-                             await loadGroups(); 
-                             const updatedGroup = groups.find(g => g.id == currentChatId || g.Id == currentChatId);
-                             if (updatedGroup && updatedGroup.members) {
-                                 renderProfileList(groupsContainer, updatedGroup.members, 'Brak uczestników.');
-                             } else {
-                                 groupsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Lista uczestników niedostępna.</div>';
-                             }
+                    groupsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Ładowanie uczestników...</div>';
+                    try {
+                        const res = await fetch(`${API_URL}/groups/${currentChatId}/members`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const members = await res.json();
+                            renderProfileList(groupsContainer, members, 'Brak uczestników.');
+                        } else {
+                            groupsContainer.innerHTML = '<div style="color: var(--error-color); font-size: 0.85rem;">Nie udało się wczytać uczestników.</div>';
                         }
+                    } catch (e) {
+                        console.error(e);
+                        groupsContainer.innerHTML = '<div style="color: var(--error-color); font-size: 0.85rem;">Błąd ładowania uczestników.</div>';
                     }
                 }
             }

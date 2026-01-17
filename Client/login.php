@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parrotnest - Zaloguj się</title>
     <link rel="icon" href="logo.png" type="image/png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=7">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -40,7 +40,7 @@
             </div>
         </div>
     </div>
-    <script src="auth.js?v=5"></script>
+    <script src="auth.js?v=6"></script>
     <script src="particles.js"></script>
 </body>
 </html>

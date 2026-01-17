@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parrotnest</title>
     <link rel="icon" href="logo.png" type="image/png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=7">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script>
-        // Pre-load logic: Sprawdź autoryzację i ustaw UI natychmiast
+
         (function() {
             try {
                 const token = localStorage.getItem('token');
@@ -26,8 +26,6 @@
                     window.location.href = '/login.php';
                     return;
                 }
-
-                // Czekamy na załadowanie DOM, aby zaktualizować elementy
                 document.addEventListener('DOMContentLoaded', () => {
                     const userNameEl = document.getElementById('userName');
                     const userAvatarEl = document.getElementById('userAvatar');
@@ -39,16 +37,27 @@
                     if (userAvatarEl) {
                         const uAv = user.avatarUrl || user.AvatarUrl;
                         if (uAv) {
-                            // Prosta funkcja resolveUrl inline dla pre-loadera
                             let url = uAv;
                             if (!url.startsWith('http') && !url.startsWith('data:')) {
-                                let serverBase = window.location.origin;
-                                if (window.location.protocol === 'file:') serverBase = 'http://localhost:6069';
-                                if (serverBase.includes('://0.0.0.0')) serverBase = serverBase.replace('://0.0.0.0', '://localhost');
-                                url = `${serverBase}/api/${url.replace(/^\/+/, '')}`;
-                                // Poprawka dla /api/api/
-                                url = url.replace('/api/api/', '/api/');
-                                url = url.replace('/api/uploads/', '/uploads/'); 
+                                url = url.replace(/\\/g, '/');
+                                if (!url.startsWith('/')) url = '/' + url;
+                                let base = window.location.origin;
+                                if (window.location.protocol === 'file:') {
+                                    base = 'http://localhost:6069';
+                                }
+                                url = `${base}${url}`;
+                            } else {
+                                try {
+                                    const target = new URL(url);
+                                    const current = new URL(window.location.origin);
+                                    if (target.hostname === 'localhost' || target.hostname === '0.0.0.0') {
+                                        target.hostname = current.hostname;
+                                        target.port = current.port || target.port;
+                                        target.protocol = current.protocol;
+                                        url = target.toString();
+                                    }
+                                } catch (e) {
+                                }
                             }
                             
                             userAvatarEl.style.backgroundImage = `url('${url}')`;
