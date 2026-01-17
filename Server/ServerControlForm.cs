@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -18,6 +18,7 @@ namespace ParrotnestServer
         {
             InitializeComponent();
             _serverHost = new ServerHost(Log);
+            this.Shown += async (s, e) => await StartServer();
         }
         private void InitializeComponent()
         {
@@ -45,10 +46,10 @@ namespace ParrotnestServer
             btnStop.Click += async (s, e) => await StopServer();
             btnStop.Enabled = false;
             pnlButtons.Controls.Add(btnStop);
-            btnCleanDB = CreateButton("WyczyĹ›Ä‡ BazÄ™", 320, Color.FromArgb(255, 152, 0));
+            btnCleanDB = CreateButton("Wyczyść Bazę", 320, Color.FromArgb(255, 152, 0));
             btnCleanDB.Click += BtnCleanDB_Click;
             pnlButtons.Controls.Add(btnCleanDB);
-            btnOpenBrowser = CreateButton("OtwĂłrz App", 480, Color.FromArgb(33, 150, 243));
+            btnOpenBrowser = CreateButton("Otwórz App", 480, Color.FromArgb(33, 150, 243));
             btnOpenBrowser.Click += (s, e) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("http://localhost:6069/login.php") { UseShellExecute = true });
             pnlButtons.Controls.Add(btnOpenBrowser);
             txtLog = new RichTextBox();

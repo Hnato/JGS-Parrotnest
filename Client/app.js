@@ -1,171 +1,147 @@
-﻿(() => {
-    let serverBase;
-    let apiUrl;
-    if (window.location.protocol === 'file:') {
-        serverBase = 'http://localhost:6069';
-    } else {
-        serverBase = window.location.origin;
-    }
-    apiUrl = `${serverBase}/api`;
-    window.__SERVER_BASE_DEFAULT__ = serverBase;
-    window.__API_URL_DEFAULT__ = apiUrl;
-})();
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0';
-let storedBase = localStorage.getItem('serverBase');
 
-if (!isLocal) {
-    if (storedBase) {
-        localStorage.removeItem('serverBase');
-        storedBase = null;
-    }
-} else if (storedBase) {
-    const port = '6069';
-    const expectedLocalPort = `:${port}`;
-    if (!storedBase.includes(expectedLocalPort)) {
-        localStorage.removeItem('serverBase');
-        storedBase = null;
-    }
-}
-const SERVER_BASE = (storedBase || window.__SERVER_BASE_DEFAULT__).replace(/\/+$/,'');
-const API_URL = window.__API_URL_DEFAULT__ || `${SERVER_BASE}/api`;
-const HUB_URL = `${SERVER_BASE}/chatHub`;
-function resolveUrl(url) {
-    if (!url) return null;
-    if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-    url = url.replace(/\\/g, '/');
-    if (!url.startsWith('/')) {
-        url = '/' + url;
-    }
-    if (url.startsWith('/uploads/')) {
-        const baseUrl = API_URL.replace(/\/api$/, '');
+const HUB_URL = (typeof SERVER_BASE !== 'undefined'
+    ? `${SERVER_BASE}/chatHub`
+    : `${(window.__SERVER_BASE_DEFAULT__ || window.location.origin)}/chatHub`);
+if (typeof window.resolveUrl === 'undefined') {
+    window.resolveUrl = function(url) {
+        if (!url) return null;
+        if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+        
+        // Handle absolute URLs that point to localhost when we are on 0.0.0.0 or vice versa
+        if (url.startsWith('http')) {
+            const currentOrigin = window.location.origin;
+            // If current origin is 0.0.0.0 but url is localhost
+            if (currentOrigin.includes('0.0.0.0') && url.includes('localhost')) {
+                return url.replace('localhost', '0.0.0.0');
+            }
+            // If current origin is localhost but url is 0.0.0.0
+            if (currentOrigin.includes('localhost') && url.includes('0.0.0.0')) {
+                return url.replace('0.0.0.0', 'localhost');
+            }
+            return url;
+        }
+
+        url = url.replace(/\\/g, '/');
+        if (!url.startsWith('/')) url = '/' + url;
+        // Use window.location.origin to always respect the current browser context (0.0.0.0 or localhost)
+        // instead of relying on API_URL which might have been hardcoded/modified
+        const baseUrl = window.location.origin;
         return `${baseUrl}${url}`;
-    }
-    if (url.startsWith('/')) {
-        const baseUrl = API_URL.replace(/\/api$/, '');
-        return `${baseUrl}${url}`;
-    }
-    return url;
+    };
 }
-function showNotification(message, type = 'success') {
-    let container = document.getElementById('notification-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'notification-container';
-        container.className = 'notification-container';
-        document.body.appendChild(container);
-    }
-    const toast = document.createElement('div');
-    toast.className = `notification-toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease forwards';
+
+if (typeof window.showNotification === 'undefined') {
+    window.showNotification = function(message, type = 'success') {
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            container.className = 'notification-container';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = `notification-toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
         setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 4000);
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    };
 }
-async function handleApiError(response, defaultMessage = 'WystÄ…piĹ‚ bĹ‚Ä…d') {
-    const text = await response.text();
-    let message = text;
-    try {
-        const json = JSON.parse(text);
-        message = json.message || json.error || json.title || defaultMessage;
-        if (json.errors) {
-             const details = Object.values(json.errors).flat().join(', ');
-             if (details) message += `: ${details}`;
-        }
-    } catch (e) {
-        if (text.trim().startsWith('<')) {
-            message = `${defaultMessage} (Status: ${response.status})`;
-        }
-    }
-    showNotification(message, 'error');
-}
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
+
+if (typeof window.handleApiError === 'undefined') {
+    window.handleApiError = async function(response, defaultMessage = 'Wystąpił błąd') {
+        const text = await response.text();
+        let message = text;
         try {
-            const response = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password })
-            });
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                showNotification('Zalogowano pomyĹ›lnie.', 'success');
-                setTimeout(() => {
-                    window.location.href = 'index.php';
-                }, 800);
-            } else {
-                await handleApiError(response, 'Logowanie nieudane');
+            const json = JSON.parse(text);
+            message = json.message || json.error || json.title || defaultMessage;
+            if (json.errors) {
+                 const details = Object.values(json.errors).flat().join(', ');
+                 if (details) message += `: ${details}`;
             }
-        } catch (error) {
-            console.error('Error:', error);
-            showNotification('WystÄ…piĹ‚ bĹ‚Ä…d podczas logowania.', 'error');
-        }
-    });
-}
-const registerForm = document.getElementById('registerForm');
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('username').value;
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        if (password !== confirmPassword) {
-            showNotification('HasĹ‚a nie sÄ… identyczne!', 'error');
-            return;
-        }
-        try {
-            const response = await fetch(`${API_URL}/auth/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, email, password })
-            });
-            if (response.ok) {
-                showNotification('Rejestracja udana! MoĹĽesz siÄ™ teraz zalogowaÄ‡.', 'success');
-                setTimeout(() => {
-                    window.location.href = 'login.php';
-                }, 1500);
-            } else {
-                await handleApiError(response, 'Rejestracja nieudana');
+        } catch (e) {
+            if (text.trim().startsWith('<')) {
+                message = `${defaultMessage} (Status: ${response.status})`;
             }
-        } catch (error) {
-            console.error('Error:', error);
-            showNotification('WystÄ…piĹ‚ bĹ‚Ä…d podczas rejestracji.', 'error');
         }
-    });
+        showNotification(message, 'error');
+    };
 }
-const messageInput = document.getElementById('messageInput');
-if (messageInput) {
-    (async function() {
+
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("App initializing...");
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput) {
+        // Główna logika czatu
+        (async function() {
         let signalRAvailable = typeof signalR !== 'undefined';
         if (!signalRAvailable) {
-            console.warn('SignalR library not loaded â€“ funkcje czatu ograniczone, ale UI dziaĹ‚a.');
-            showNotification('Brak poĹ‚Ä…czenia z serwerem czatu. PrĂłba ponownego poĹ‚Ä…czenia...', 'warning');
+            console.warn('SignalR library not loaded – funkcje czatu ograniczone, ale UI działa.');
+            showNotification('Brak połączenia z serwerem czatu. Próba ponownego połączenia...', 'warning');
         }
         const token = localStorage.getItem('token');
         let user = null;
-        try {
-            user = JSON.parse(localStorage.getItem('user'));
-        } catch (e) {
-            console.error('Error parsing user from localStorage', e);
+        const userStr = localStorage.getItem('user');
+        
+        if (userStr) {
+            try {
+                user = JSON.parse(userStr);
+            } catch (e) {
+                console.error('Error parsing user from localStorage', e);
+            }
         }
+
         if (!token || !user) {
-            window.location.href = 'login.php';
+            const tokenVal = localStorage.getItem('token');
+            const userVal = localStorage.getItem('user');
+            console.warn('Authorization failed. Debug info:', { token: tokenVal, user: userVal });
+            
+            document.body.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#000;color:#ff3333;font-family:monospace;padding:20px;text-align:center;">
+                    <h2 style="font-size:2em;margin-bottom:20px;">⛔ BŁĄD AUTORYZACJI</h2>
+                    <p style="color:white;margin-bottom:20px;">System nie wykrył poprawnego logowania.</p>
+                    
+                    <div style="background:#111;border:1px solid #333;padding:15px;border-radius:8px;text-align:left;width:100%;max-width:600px;margin-bottom:30px;">
+                        <p style="margin:5px 0;color:#888;">DIAGNOSTYKA:</p>
+                        <p style="margin:5px 0;">Token: <span style="color:${tokenVal ? '#0f0' : '#f00'}">${tokenVal ? (tokenVal.substring(0, 15) + '...') : 'BRAK (null/empty)'}</span></p>
+                        <p style="margin:5px 0;">User: <span style="color:${userVal ? '#0f0' : '#f00'}">${userVal ? 'OBECNY' : 'BRAK (null/empty)'}</span></p>
+                        <p style="margin:5px 0;">URL: <span style="color:#aaa">${window.location.href}</span></p>
+                    </div>
+
+                    <div style="display:flex;gap:15px;">
+                        <button onclick="window.location.href='/login.php'" style="padding:12px 24px;background:#333;border:1px solid #555;color:white;cursor:pointer;font-weight:bold;border-radius:4px;">PRZEJDŹ DO LOGOWANIA</button>
+                        <button onclick="localStorage.clear();window.location.reload()" style="padding:12px 24px;background:#cc3300;border:none;color:white;cursor:pointer;font-weight:bold;border-radius:4px;">WYCZYŚĆ DANE I ODŚWIEŻ</button>
+                    </div>
+                </div>
+            `;
             return;
         }
+        console.log('User logged in, updating UI:', user);
+        const userNameEl = document.getElementById('userName');
+        const userAvatarEl = document.getElementById('userAvatar');
+        
+        if (userNameEl) {
+            userNameEl.textContent = user.username || user.userName || user.email || 'Użytkownik';
+        }
+        
+        if (userAvatarEl) {
+            const uAv = user.avatarUrl || user.AvatarUrl;
+            if (uAv) {
+                userAvatarEl.style.backgroundImage = `url('${resolveUrl(uAv)}')`;
+                userAvatarEl.style.backgroundSize = 'cover';
+                userAvatarEl.textContent = '';
+            } else {
+                const nameForAvatar = user.username || user.userName || user.email || '?';
+                userAvatarEl.textContent = nameForAvatar.charAt(0).toUpperCase();
+                userAvatarEl.style.backgroundImage = '';
+                userAvatarEl.style.display = 'flex';
+                userAvatarEl.style.alignItems = 'center';
+                userAvatarEl.style.justifyContent = 'center';
+            }
+        }
+
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
             Notification.requestPermission();
         }
@@ -201,7 +177,7 @@ if (messageInput) {
                     .build();
             } catch (e) {
                 console.error('SignalR build error:', e);
-                showNotification('BĹ‚Ä…d inicjalizacji poĹ‚Ä…czenia.', 'error');
+                showNotification('Błąd inicjalizacji połączenia.', 'error');
             }
             loadFriends();
             loadGroups();
@@ -214,16 +190,22 @@ if (messageInput) {
         const imageInput = document.getElementById('imageInput');
         const attachmentPreview = document.getElementById('attachmentPreview');
         const attachButton = document.getElementById('attachButton');
+        const emojiButton = document.getElementById('emojiButton');
+        const emojiPicker = document.getElementById('emojiPicker');
+        const conversationSidebar = document.getElementById('conversationSidebar');
+        const conversationInfoButton = document.getElementById('conversationInfoButton');
+        const closeConversationSidebarButton = document.getElementById('closeConversationSidebarButton');
+        const dashboardContainer = document.querySelector('.dashboard-container');
         const userStatusEl = document.getElementById('userStatus');
         const notificationBell = document.getElementById('notificationButton');
         let notificationsMuted = localStorage.getItem('notificationsMuted') === 'true';
         if (notificationBell) {
-            notificationBell.textContent = notificationsMuted ? 'đź”•' : 'đź””';
+            notificationBell.textContent = notificationsMuted ? '🔕' : '🔔';
             notificationBell.addEventListener('click', () => {
                 notificationsMuted = !notificationsMuted;
                 localStorage.setItem('notificationsMuted', notificationsMuted ? 'true' : 'false');
-                notificationBell.textContent = notificationsMuted ? 'đź”•' : 'đź””';
-                showNotification(notificationsMuted ? 'Powiadomienia wyĹ‚Ä…czone' : 'Powiadomienia wĹ‚Ä…czone', 'info');
+                notificationBell.textContent = notificationsMuted ? '🔕' : '🔔';
+                showNotification(notificationsMuted ? 'Powiadomienia wyłączone' : 'Powiadomienia włączone', 'info');
             });
         }
         if (userStatusEl) {
@@ -240,6 +222,41 @@ if (messageInput) {
         if (attachButton && imageInput) {
             attachButton.addEventListener('click', () => {
                 imageInput.click();
+            });
+        }
+        if (emojiPicker) {
+            const emojiChars = "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😍 😘 😗 😜 🤪 🤩 😎 😏 😡 😢 😭 😱 🤔 🙄 😴 🤤 😈 👿 👍 👎 👊 🤝 🙌 👀 ❤️ 💔 💩 🔥 ⭐ ✨ 🎉 🎁 🎵 💀 🤡 🤠 🥳 🥺 🤥 🤫 🤭 🧐 🤓 🤯 🤪 🤬 🤮 🤢 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 👻 👽 👾 🤖 😺 😸 😹 😻 😼 😽 🙀 😿 😾 🙈 🙉 🙊 💋 💌 💘 💝 💖 💗 💓 💞 💕 💟 ❣️ 💔 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💯 💢 💥 💫 💦 💨 🕳️ 💣 💬 👁️‍🗨️ 🗨️ 🗯️ 💭 💤 👋 🤚 🖐️ ✋ 🖖 👌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 👐 🤲 🤝 🙏 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 🦻 👃 🧠 🦷 🦴 👀 👁️ 👅 👄".split(" ");
+            emojiChars.forEach(ch => {
+                if (!ch) return;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = ch;
+                btn.addEventListener('click', () => {
+                    const input = document.getElementById('messageInput');
+                    if (!input) return;
+                    const start = input.selectionStart !== null ? input.selectionStart : input.value.length;
+                    const end = input.selectionEnd !== null ? input.selectionEnd : input.value.length;
+                    const before = input.value.slice(0, start);
+                    const after = input.value.slice(end);
+                    input.value = before + ch + after;
+                    const pos = start + ch.length;
+                    input.focus();
+                    if (input.setSelectionRange) {
+                        input.setSelectionRange(pos, pos);
+                    }
+                });
+                emojiPicker.appendChild(btn);
+            });
+        }
+        if (emojiButton && emojiPicker) {
+            emojiButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                emojiPicker.classList.toggle('open');
+            });
+            document.addEventListener('click', (e) => {
+                if (!emojiPicker.contains(e.target) && e.target !== emojiButton) {
+                    emojiPicker.classList.remove('open');
+                }
             });
         }
         const groupAvatarInput = document.getElementById('groupAvatarInput');
@@ -293,17 +310,25 @@ if (messageInput) {
                     if (attachmentPreview) {
                         const url = URL.createObjectURL(selectedImageFile);
                         const sizeKb = Math.max(1, Math.round(selectedImageFile.size / 1024));
-                        attachmentPreview.style.display = 'flex';
+                        // Show preview as a small cloud/bubble above/near input
+                        attachmentPreview.className = 'attachment-preview visible';
                         attachmentPreview.innerHTML = `
-                            <img src="${url}" class="attachment-thumb" alt="">
-                            <span class="attachment-name">${selectedImageFile.name} (${sizeKb} KB)</span>
-                            <button type="button" class="btn-icon attachment-remove" title="UsuĹ„">Ă—</button>
+                            <div class="attachment-preview-close" title="Usuń">×</div>
+                            <img src="${url}" alt="Podgląd">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-align: center;">
+                                ${selectedImageFile.name} (${sizeKb} KB)
+                            </div>
                         `;
-                        const removeBtn = attachmentPreview.querySelector('.attachment-remove');
+                        // Ensure it's displayed (though css class handles it, direct style might override)
+                        attachmentPreview.style.display = 'block';
+
+                        const removeBtn = attachmentPreview.querySelector('.attachment-preview-close');
                         if (removeBtn) {
-                            removeBtn.addEventListener('click', () => {
+                            removeBtn.addEventListener('click', (ev) => {
+                                ev.stopPropagation(); // Prevent bubbling
                                 selectedImageFile = null;
                                 imageInput.value = '';
+                                attachmentPreview.className = 'attachment-preview';
                                 attachmentPreview.style.display = 'none';
                                 attachmentPreview.innerHTML = '';
                             });
@@ -332,14 +357,22 @@ if (messageInput) {
                         if (response.ok) {
                             const data = await response.json();
                             imageUrl = data.url;
+                            // Clean up preview
+                            selectedImageFile = null;
+                            imageInput.value = '';
+                            if (attachmentPreview) {
+                                attachmentPreview.className = 'attachment-preview';
+                                attachmentPreview.style.display = 'none';
+                                attachmentPreview.innerHTML = '';
+                            }
                         } else {
                             console.error('Upload failed');
-                            showNotification('Nie udaĹ‚o siÄ™ wysĹ‚aÄ‡ obrazka.', 'error');
+                            showNotification('Nie udało się wysłać obrazka.', 'error');
                             return;
                         }
                     } catch (err) {
                         console.error('Error uploading file:', err);
-                        showNotification('BĹ‚Ä…d podczas wysyĹ‚ania pliku.', 'error');
+                        showNotification('Błąd podczas wysyłania pliku.', 'error');
                         return;
                     }
                 }
@@ -347,7 +380,7 @@ if (messageInput) {
                     try {
                         if (!signalRAvailable || !connection || connection.state !== signalR.HubConnectionState.Connected) {
                             console.warn('SignalR not connected. State:', connection.state);
-                            showNotification('PoĹ‚Ä…czenie z serwerem nie jest aktywne. Poczekaj chwilÄ™.', 'error');
+                            showNotification('Połączenie z serwerem nie jest aktywne. Poczekaj chwilę.', 'error');
                             return;
                         }
                         const senderName = user.username || user.userName || user.email || 'Nieznany';
@@ -366,29 +399,17 @@ if (messageInput) {
                             attachmentPreview.style.display = 'none';
                             attachmentPreview.textContent = '';
                         }
+                        if (conversationSidebar && conversationSidebar.classList.contains('open')) {
+                            updateConversationSidebar();
+                        }
                     } catch (err) {
-                        console.error('BĹ‚Ä…d wysyĹ‚ania wiadomoĹ›ci:', err);
-                        showNotification('Nie udaĹ‚o siÄ™ wysĹ‚aÄ‡ wiadomoĹ›ci.', 'error');
+                        console.error('Błąd wysyłania wiadomości:', err);
+                        showNotification('Nie udało się wysłać wiadomości.', 'error');
                     }
                 }
             });
         }
-        const userNameEl = document.getElementById('userName');
-        const userAvatarEl = document.getElementById('userAvatar');
-        if (userNameEl) {
-            userNameEl.textContent = user.username || 'UĹĽytkownik';
-        }
-        if (userAvatarEl) {
-            const uAv = user.avatarUrl || user.AvatarUrl;
-            if (uAv) {
-                userAvatarEl.style.backgroundImage = `url('${resolveUrl(uAv)}')`;
-                userAvatarEl.style.backgroundSize = 'cover';
-                userAvatarEl.textContent = '';
-            } else if (user.username) {
-                userAvatarEl.textContent = user.username.charAt(0).toUpperCase();
-                userAvatarEl.style.backgroundImage = '';
-            }
-        }
+
         connection.on("UserStatusChanged", (userId, isOnline) => {
             console.log(`User ${userId} status changed: ${isOnline}`);
             const friendIndex = friends.findIndex(f => f.id == userId || f.Id == userId);
@@ -402,18 +423,18 @@ if (messageInput) {
             try {
                 await loadGroups();
                 if (action === 'added') {
-                    showNotification(`DoĹ‚Ä…czono do grupy: ${group?.Name || group?.name}`, 'success');
+                    showNotification(`Dołączono do grupy: ${group?.Name || group?.name}`, 'success');
                 } else if (action === 'removed') {
-                    showNotification(`UsuniÄ™to z grupy: ${group?.Name || group?.name}`, 'info');
+                    showNotification(`Usunięto z grupy: ${group?.Name || group?.name}`, 'info');
                     const last = localStorage.getItem('lastChat');
                     if (last) {
                         const { id, type } = JSON.parse(last);
                         if (type === 'group' && id == group?.Id) {
-                            selectChat(null, 'OgĂłlny', null, 'global');
+                            selectChat(null, 'Ogólny', null, 'global');
                         }
                     }
                 } else if (action === 'updated') {
-                    showNotification(`Zaktualizowano grupÄ™: ${group?.Name || group?.name}`, 'info');
+                    showNotification(`Zaktualizowano grupę: ${group?.Name || group?.name}`, 'info');
                 }
             } catch (e) {
                 console.error('GroupMembershipChanged handler error', e);
@@ -450,8 +471,8 @@ if (messageInput) {
                 }
                 if (document.hidden || !shouldShow) {
                     if (Notification.permission === "granted") {
-                        new Notification(`Nowa wiadomoĹ›Ä‡ od ${senderUsername}`, {
-                            body: message || (imageUrl ? "PrzesĹ‚ano zdjÄ™cie" : "Nowa wiadomoĹ›Ä‡"),
+                        new Notification(`Nowa wiadomość od ${senderUsername}`, {
+                            body: message || (imageUrl ? "Przesłano zdjęcie" : "Nowa wiadomość"),
                             icon: 'parrot.png'
                         });
                     }
@@ -459,7 +480,7 @@ if (messageInput) {
                         if (!titleInterval) {
                             let isOriginal = false;
                             titleInterval = setInterval(() => {
-                                document.title = isOriginal ? originalTitle : "Nowa wiadomoĹ›Ä‡!";
+                                document.title = isOriginal ? originalTitle : "Nowa wiadomość!";
                                 isOriginal = !isOriginal;
                             }, 1000);
                         }
@@ -513,6 +534,9 @@ if (messageInput) {
                 messagesContainer.appendChild(messageWrapper);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
+            if (conversationSidebar && conversationSidebar.classList.contains('open')) {
+                updateConversationSidebar();
+            }
         });
         connection.on("ReceiveSignal", async (user, signal) => {
             const signalData = JSON.parse(signal);
@@ -529,11 +553,11 @@ if (messageInput) {
                     friends = await response.json();
                     updateChatList();
                 } else {
-                    await handleApiError(response, 'BĹ‚Ä…d pobierania listy znajomych');
+                    await handleApiError(response, 'Błąd pobierania listy znajomych');
                 }
             } catch (error) {
                 console.error('Error loading friends:', error);
-                showNotification('Brak poĹ‚Ä…czenia z bazÄ… lub serwerem (znajomi).', 'error');
+                showNotification('Brak połączenia z bazą lub serwerem (znajomi).', 'error');
             }
         }
         async function loadGroups() {
@@ -547,11 +571,11 @@ if (messageInput) {
                     groups = await response.json();
                     updateChatList();
                 } else {
-                    await handleApiError(response, 'BĹ‚Ä…d pobierania grup');
+                    await handleApiError(response, 'Błąd pobierania grup');
                 }
             } catch (error) {
                 console.error('Error loading groups:', error);
-                showNotification('Brak poĹ‚Ä…czenia z bazÄ… lub serwerem (grupy).', 'error');
+                showNotification('Brak połączenia z bazą lub serwerem (grupy).', 'error');
             }
         }
         function updateNotificationBadge() {
@@ -582,11 +606,11 @@ if (messageInput) {
                     updateNotificationBadge();
                     renderPendingRequestsModal();
                 } else {
-                    await handleApiError(response, 'BĹ‚Ä…d pobierania zaproszeĹ„');
+                    await handleApiError(response, 'Błąd pobierania zaproszeń');
                 }
             } catch (error) {
                 console.error('Error loading pending requests:', error);
-                showNotification('Brak poĹ‚Ä…czenia z bazÄ… lub serwerem (zaproszenia).', 'error');
+                showNotification('Brak połączenia z bazą lub serwerem (zaproszenia).', 'error');
             }
         }
         async function acceptFriend(friendshipId) {
@@ -601,14 +625,14 @@ if (messageInput) {
                     loadPendingRequests();
                     loadFriends();
                 } else {
-                    showNotification('Nie udaĹ‚o siÄ™ zaakceptowaÄ‡ zaproszenia.', 'error');
+                    showNotification('Nie udało się zaakceptować zaproszenia.', 'error');
                 }
             } catch (error) {
                 console.error('Error accepting friend:', error);
             }
         }
         async function rejectFriend(friendshipId) {
-            if (!confirm('Czy na pewno chcesz odrzuciÄ‡ to zaproszenie?')) return;
+            if (!confirm('Czy na pewno chcesz odrzucić to zaproszenie?')) return;
             try {
                 const response = await fetch(`${API_URL}/friends/${friendshipId}`, {
                     method: 'DELETE',
@@ -619,7 +643,7 @@ if (messageInput) {
                 if (response.ok) {
                     loadPendingRequests();
                 } else {
-                    showNotification('Nie udaĹ‚o siÄ™ odrzuciÄ‡ zaproszenia.', 'error');
+                    showNotification('Nie udało się odrzucić zaproszenia.', 'error');
                 }
             } catch (error) {
                 console.error('Error rejecting friend:', error);
@@ -631,14 +655,14 @@ if (messageInput) {
             const items = Array.from(chatList.children);
             items.forEach(item => {
                 const h4 = item.querySelector('h4');
-                if (item.classList.contains('chat-item') && h4 && h4.textContent === 'OgĂłlny') {
+                if (item.classList.contains('chat-item') && h4 && h4.textContent === 'Ogólny') {
                 } else {
                     item.remove();
                 }
             });
             if (pendingRequests.length > 0) {
                 const pendingHeader = document.createElement('div');
-                pendingHeader.textContent = 'OczekujÄ…ce zaproszenia';
+                pendingHeader.textContent = 'Oczekujące zaproszenia';
                 pendingHeader.style.padding = '10px 20px';
                 pendingHeader.style.fontSize = '0.75rem';
                 pendingHeader.style.fontWeight = 'bold';
@@ -693,7 +717,7 @@ if (messageInput) {
                         acceptFriend(req.id);
                     };
                     const rejectBtn = document.createElement('button');
-                    rejectBtn.textContent = 'OdrzuÄ‡';
+                    rejectBtn.textContent = 'Odrzuć';
                     rejectBtn.style.padding = '5px 10px';
                     rejectBtn.style.border = '1px solid var(--error-color)';
                     rejectBtn.style.borderRadius = '4px';
@@ -795,36 +819,36 @@ if (messageInput) {
                     if (friend.isOnline || friend.IsOnline) {
                         const statusDot = document.createElement('span');
                         statusDot.className = 'status-dot-online';
-                        statusDot.textContent = 'â—Ź';
+                        statusDot.textContent = '●';
                         statusDot.style.color = 'var(--accent-green)';
                         statusDot.style.marginLeft = '5px';
                         statusDot.style.fontSize = '12px';
-                        statusDot.title = 'DostÄ™pny';
+                        statusDot.title = 'Dostępny';
                         h4.appendChild(statusDot);
                     }
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'btn-icon';
-                    removeBtn.title = 'UsuĹ„ znajomego';
-                    removeBtn.textContent = 'Ă—';
+                    removeBtn.title = 'Usuń znajomego';
+                    removeBtn.textContent = '×';
                     removeBtn.style.marginLeft = 'auto';
                     removeBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        if (!confirm(`UsunÄ…Ä‡ znajomego ${friend.username}?`)) return;
+                        if (!confirm(`Usunąć znajomego ${friend.username}?`)) return;
                         try {
                             const response = await fetch(`${API_URL}/friends/${friend.id}`, {
                                 method: 'DELETE',
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
                             if (response.ok) {
-                                showNotification('Znajomy usuniÄ™ty.', 'success');
+                                showNotification('Znajomy usunięty.', 'success');
                                 await loadFriends();
                                 updateChatList();
                             } else {
-                                await handleApiError(response, 'Nie udaĹ‚o siÄ™ usunÄ…Ä‡ znajomego');
+                                await handleApiError(response, 'Nie udało się usunąć znajomego');
                             }
                         } catch (err) {
                             console.error('Error removing friend:', err);
-                            showNotification('WystÄ…piĹ‚ bĹ‚Ä…d.', 'error');
+                            showNotification('Wystąpił błąd.', 'error');
                         }
                     };
                     chatItem.appendChild(avatar);
@@ -848,7 +872,7 @@ if (messageInput) {
                 empty.style.fontSize = '0.8rem';
                 empty.style.width = '100%';
                 empty.style.textAlign = 'center';
-                empty.textContent = 'Brak zaproszeĹ„.';
+                empty.textContent = 'Brak zaproszeń.';
                 list.appendChild(empty);
                 return;
             }
@@ -864,8 +888,8 @@ if (messageInput) {
                     e.stopPropagation();
                     const rAv = req.avatarUrl || req.AvatarUrl;
                     const rId = req.requesterId || req.RequesterId;
-                    if (rId) {
-                        showUserProfile(rId, req.username || 'UĹĽytkownik', rAv, false);
+                        if (rId) {
+                            showUserProfile(rId, req.username || 'Użytkownik', rAv, false);
                     }
                 };
                 {
@@ -881,7 +905,7 @@ if (messageInput) {
                 }
                 const name = document.createElement('div');
                 name.style.flex = '1';
-                name.textContent = req.username || `UĹĽytkownik ${req.requesterId}`;
+                name.textContent = req.username || `Użytkownik ${req.requesterId}`;
                 const accept = document.createElement('button');
                 accept.className = 'btn-secondary';
                 accept.textContent = 'Akceptuj';
@@ -896,18 +920,18 @@ if (messageInput) {
                             await loadPendingRequests();
                             await loadFriends();
                         } else {
-                            await handleApiError(response, 'Nie udaĹ‚o siÄ™ zaakceptowaÄ‡ zaproszenia');
+                            await handleApiError(response, 'Nie udało się zaakceptować zaproszenia');
                         }
                     } catch (err) {
                         console.error('Accept error', err);
-                        showNotification('BĹ‚Ä…d akceptacji zaproszenia.', 'error');
+                        showNotification('Błąd akceptacji zaproszenia.', 'error');
                     }
                 };
                 const reject = document.createElement('button');
                 reject.className = 'btn-secondary';
-                reject.textContent = 'OdrzuÄ‡';
+                reject.textContent = 'Odrzuć';
                 reject.onclick = async () => {
-                    if (!confirm('OdrzuciÄ‡ zaproszenie?')) return;
+                    if (!confirm('Odrzucić zaproszenie?')) return;
                     try {
                         const response = await fetch(`${API_URL}/friends/${req.id}`, {
                             method: 'DELETE',
@@ -917,11 +941,11 @@ if (messageInput) {
                             showNotification('Zaproszenie odrzucone.', 'success');
                             await loadPendingRequests();
                         } else {
-                            await handleApiError(response, 'Nie udaĹ‚o siÄ™ odrzuciÄ‡ zaproszenia');
+                            await handleApiError(response, 'Nie udało się odrzucić zaproszenia');
                         }
                     } catch (err) {
                         console.error('Reject error', err);
-                        showNotification('BĹ‚Ä…d odrzucania zaproszenia.', 'error');
+                        showNotification('Błąd odrzucania zaproszenia.', 'error');
                     }
                 };
                 row.appendChild(avatar);
@@ -940,19 +964,19 @@ if (messageInput) {
                 avatar: chatAvatar,
                 type: type
             }));
-            document.querySelectorAll('.chat-item').forEach(item => {
+                document.querySelectorAll('.chat-item').forEach(item => {
                 item.classList.remove('active');
                 if (type === 'group' && item.dataset.groupId == chatId) {
                     item.classList.add('active');
                 } else if (type === 'private' && item.dataset.friendId == chatId) {
                     item.classList.add('active');
-                } else if (!chatId && item.querySelector('h4')?.textContent === 'OgĂłlny') {
+                } else if (!chatId && item.querySelector('h4')?.textContent === 'Ogólny') {
                     item.classList.add('active');
                 }
             });
             const chatHeader = document.querySelector('.chat-header h3');
             if (chatHeader) {
-                chatHeader.textContent = chatName || 'OgĂłlny';
+                chatHeader.textContent = chatName || 'Ogólny';
             }
             const headerAvatar = document.querySelector('.chat-header .avatar');
             if (headerAvatar) {
@@ -971,7 +995,7 @@ if (messageInput) {
                     const currentUser = JSON.parse(localStorage.getItem('user'));
                     if (group && currentUser && (group.ownerId == currentUser.id || group.OwnerId == currentUser.id)) {
                         newAvatar.style.cursor = 'pointer';
-                        newAvatar.title = 'Kliknij, aby zmieniÄ‡ ikonÄ™ grupy';
+                        newAvatar.title = 'Kliknij, aby zmienić ikonę grupy';
                         const addMemberBtn = document.getElementById('addGroupMemberBtn');
                         if (addMemberBtn) {
                              addMemberBtn.style.display = 'block';
@@ -980,21 +1004,21 @@ if (messageInput) {
                         if (deleteGroupBtn) {
                             deleteGroupBtn.style.display = 'block';
                             deleteGroupBtn.onclick = async () => {
-                                if (!confirm('UsunÄ…Ä‡ tÄ™ grupÄ™?')) return;
+                                if (!confirm('Usunąć tę grupę?')) return;
                                 try {
                                     const response = await fetch(`${API_URL}/groups/${chatId}`, {
                                         method: 'DELETE',
                                         headers: { 'Authorization': `Bearer ${token}` }
                                     });
                                     if (response.ok) {
-                                        showNotification('Grupa zostaĹ‚a usuniÄ™ta.', 'success');
+                                        showNotification('Grupa została usunięta.', 'success');
                                         await loadGroups();
-                                        selectChat(null, 'OgĂłlny', null, 'global');
+                                        selectChat(null, 'Ogólny', null, 'global');
                                     } else {
-                                        await handleApiError(response, 'Nie udaĹ‚o siÄ™ usunÄ…Ä‡ grupy');
+                                        await handleApiError(response, 'Nie udało się usunąć grupy');
                                     }
                                 } catch (err) {
-                                    showNotification('BĹ‚Ä…d usuwania grupy.', 'error');
+                                    showNotification('Błąd usuwania grupy.', 'error');
                                 }
                             };
                         }
@@ -1007,7 +1031,7 @@ if (messageInput) {
                                     const formData = new FormData();
                                     formData.append('avatar', input.files[0]);
                                     try {
-                                        showNotification('WysyĹ‚anie ikony...', 'info');
+                                        showNotification('Wysyłanie ikony...', 'info');
                                         const response = await fetch(`${API_URL}/groups/${chatId}/avatar`, {
                                             method: 'POST',
                                             headers: {
@@ -1035,13 +1059,13 @@ if (messageInput) {
                                                 avatar: data.url,
                                                 type: type
                                             }));
-                                            showNotification('Ikona grupy zostaĹ‚a zmieniona!', 'success');
+                                            showNotification('Ikona grupy została zmieniona!', 'success');
                                         } else {
-                                            await handleApiError(response, 'BĹ‚Ä…d zmiany ikony');
+                                            await handleApiError(response, 'Błąd zmiany ikony');
                                         }
                                     } catch (err) {
                                         console.error('Error uploading avatar:', err);
-                                        showNotification('WystÄ…piĹ‚ bĹ‚Ä…d.', 'error');
+                                        showNotification('Wystąpił błąd.', 'error');
                                     }
                                 }
                             };
@@ -1085,11 +1109,14 @@ if (messageInput) {
                 voiceCallButton.style.display = (type === 'private' && chatId) ? 'block' : 'none';
             }
             loadPreviousMessages();
+            if (conversationSidebar && conversationSidebar.classList.contains('open')) {
+                updateConversationSidebar();
+            }
         }
         const globalChatItem = document.getElementById('globalChatItem') || document.querySelector('.chat-item:first-child');
         if (globalChatItem) {
             globalChatItem.addEventListener('click', () => {
-                selectChat(null, 'OgĂłlny', null, 'global');
+                selectChat(null, 'Ogólny', null, 'global');
             });
         }
         const lastChat = localStorage.getItem('lastChat');
@@ -1109,7 +1136,7 @@ if (messageInput) {
         async function loadPreviousMessages() {
             const messagesContainer = document.getElementById("chat-messages");
             if (messagesContainer) {
-                messagesContainer.innerHTML = '<div class="message received"><div class="message-text">Ĺadowanie wiadomoĹ›ci...</div></div>';
+                messagesContainer.innerHTML = '<div class="message received"><div class="message-text">Ładowanie wiadomości...</div></div>';
             }
             try {
                 let url = `${API_URL}/messages`;
@@ -1128,7 +1155,7 @@ if (messageInput) {
                     const errorText = await response.text();
                     console.error('Error loading messages:', response.status, errorText);
                     if (messagesContainer) {
-                        messagesContainer.innerHTML = '<div class="message received"><div class="message-text" style="color:red">BĹ‚Ä…d Ĺ‚adowania wiadomoĹ›ci.</div></div>';
+                        messagesContainer.innerHTML = '<div class="message received"><div class="message-text" style="color:red">Błąd ładowania wiadomości.</div></div>';
                     }
                     return;
                 }
@@ -1147,7 +1174,7 @@ if (messageInput) {
                 if (!messages || !Array.isArray(messages) || messages.length === 0) {
                     const welcomeMsg = document.createElement("div");
                     welcomeMsg.className = "message received";
-                    welcomeMsg.textContent = "Witaj w Parrotnest! To jest poczÄ…tek twojej konwersacji.";
+                    welcomeMsg.textContent = "Witaj w Parrotnest! To jest początek twojej konwersacji.";
                     messagesContainer.appendChild(welcomeMsg);
                     return;
                 }
@@ -1255,9 +1282,11 @@ if (messageInput) {
                     const errorMsg = document.createElement("div");
                     errorMsg.className = "message received";
                     errorMsg.style.color = "var(--error-color)";
-                    errorMsg.textContent = "BĹ‚Ä…d podczas Ĺ‚adowania wiadomoĹ›ci. OdĹ›wieĹĽ stronÄ™.";
-                    messagesContainer.appendChild(errorMsg);
+                    errorMsg.textContent = "Błąd podczas ładowania wiadomości. Odśwież stronę.";
                 }
+            }
+            if (conversationSidebar && conversationSidebar.classList.contains('open')) {
+                updateConversationSidebar();
             }
         }
         const addFriendGroupButton = document.getElementById('addFriendGroupButton');
@@ -1315,7 +1344,7 @@ if (messageInput) {
                 name.title = friend.username;
                 const check = document.createElement('div');
                 check.className = 'check-icon';
-                check.textContent = 'âś”';
+                check.textContent = '✓';
                 tile.appendChild(avatar);
                 tile.appendChild(name);
                 tile.appendChild(check);
@@ -1351,7 +1380,7 @@ if (messageInput) {
                 const friendInput = document.getElementById('friendUsername');
                 const friendValue = friendInput.value.trim();
                 if (!friendValue) {
-                    showNotification('Wpisz nazwÄ™ uĹĽytkownika lub email', 'error');
+                    showNotification('Wpisz nazwę użytkownika lub email', 'error');
                     return;
                 }
                 try {
@@ -1369,21 +1398,18 @@ if (messageInput) {
                         addModal.classList.remove('show');
                         await loadFriends();
                         if (data.pending) {
-                            showNotification('Zaproszenie zostaĹ‚o wysĹ‚ane. Poczekaj na akceptacjÄ™ uĹĽytkownika.', 'success');
-                        } else if (data.alreadyFriends) {
-                            showNotification(data.message || 'JesteĹ›cie juĹĽ znajomymi.', 'success');
-                            if (data.friendId) {
-                                selectChat(data.friendId, data.username, data.avatarUrl);
-                            }
+                            showNotification('Zaproszenie zostało wysłane. Poczekaj na akceptację użytkownika.', 'success');
+                            showNotification(data.message || 'Jesteście już znajomymi.', 'success');
+                            selectChat(data.friendId, data.username, data.avatarUrl);
                         } else {
-                             showNotification(data.message || 'Operacja zakoĹ„czona sukcesem.', 'success');
+                            showNotification(data.message || 'Operacja zakończona sukcesem.', 'success');
                         }
                     } else {
-                        await handleApiError(response, 'BĹ‚Ä…d podczas dodawania znajomego');
+                        await handleApiError(response, 'Błąd podczas dodawania znajomego');
                     }
                 } catch (error) {
                     console.error('Error adding friend:', error);
-                    showNotification('WystÄ…piĹ‚ bĹ‚Ä…d podczas dodawania znajomego.', 'error');
+                    showNotification('Wystąpił błąd podczas dodawania znajomego.', 'error');
                 }
             });
         }
@@ -1393,8 +1419,7 @@ if (messageInput) {
                 const groupMembersInput = document.getElementById('groupMembers');
                 const groupName = groupNameInput ? groupNameInput.value.trim() : '';
                 if (!groupName) {
-                    showNotification('Wpisz nazwÄ™ grupy', 'error');
-                    return;
+                    showNotification('Wpisz nazwę grupy', 'error');
                 }
                 const members = groupMembersInput ? groupMembersInput.value.trim().split(',').map(m => m.trim()).filter(m => m) : [];
                 try {
@@ -1426,7 +1451,7 @@ if (messageInput) {
                                 console.error('Error uploading group avatar:', avatarErr);
                             }
                         }
-                        showNotification('Grupa zostaĹ‚a utworzona.', 'success');
+                        showNotification('Grupa została utworzona.', 'success');
                         if (groupNameInput) groupNameInput.value = '';
                         if (groupMembersInput) groupMembersInput.value = '';
                         if (groupAvatarInput) groupAvatarInput.value = '';
@@ -1438,11 +1463,11 @@ if (messageInput) {
                         addModal.classList.remove('show');
                         await loadGroups();
                     } else {
-                        await handleApiError(response, 'Nie udaĹ‚o siÄ™ utworzyÄ‡ grupy');
+                        await handleApiError(response, 'Nie udało się utworzyć grupy');
                     }
                 } catch (error) {
                     console.error('Error creating group:', error);
-                    showNotification('WystÄ…piĹ‚ bĹ‚Ä…d podczas tworzenia grupy.', 'error');
+                    showNotification('Wystąpił błąd podczas tworzenia grupy.', 'error');
                 }
             });
         }
@@ -1482,7 +1507,7 @@ if (messageInput) {
                 const hiddenInput = document.getElementById('addMemberHiddenInput');
                 const selectedUsernames = hiddenInput ? hiddenInput.value.split(',').filter(x => x) : [];
                 if (selectedUsernames.length === 0) {
-                    showNotification('Wybierz przynajmniej jednÄ… osobÄ™.', 'warning');
+                    showNotification('Wybierz przynajmniej jednego członka.', 'warning');
                     return;
                 }
                 try {
@@ -1496,14 +1521,14 @@ if (messageInput) {
                     });
                     if (response.ok) {
                         const data = await response.json();
-                        showNotification(data.message || 'Dodano czĹ‚onkĂłw do grupy.', 'success');
+                        showNotification(data.message || 'Dodano członków do grupy.', 'success');
                         addMemberModal.classList.remove('show');
                     } else {
-                        await handleApiError(response, 'Nie udaĹ‚o siÄ™ dodaÄ‡ czĹ‚onkĂłw');
+                        await handleApiError(response, 'Nie udało się dodać członków');
                     }
                 } catch (error) {
                     console.error('Error adding members:', error);
-                    showNotification('WystÄ…piĹ‚ bĹ‚Ä…d.', 'error');
+                    showNotification('Wystąpił błąd podczas dodawania członków.', 'error');
                 }
             });
         }
@@ -1593,13 +1618,13 @@ if (messageInput) {
                     const currentUser = JSON.parse(localStorage.getItem('user'));
                     currentUser.avatarUrl = data.url;
                     localStorage.setItem('user', JSON.stringify(currentUser));
-                    showNotification('ZdjÄ™cie profilowe zostaĹ‚o zaktualizowane.', 'success');
+                    showNotification('Zdjęcie profilowe zostało zaktualizowane.', 'success');
                 } else {
-                    await handleApiError(response, 'BĹ‚Ä…d aktualizacji zdjÄ™cia');
+                    await handleApiError(response, 'Błąd aktualizacji zdjęcia');
                 }
             } catch (error) {
                 console.error('Error uploading avatar:', error);
-                showNotification('WystÄ…piĹ‚ bĹ‚Ä…d podczas wysyĹ‚ania zdjÄ™cia.', 'error');
+                showNotification('Wystąpił błąd podczas wysyłania zdjęcia.', 'error');
             }
         }
         if (avatarInput) {
@@ -1634,22 +1659,22 @@ if (messageInput) {
                         localStorage.setItem('user', JSON.stringify(currentUser));
                         const userNameEl = document.getElementById('userName');
                         if (userNameEl) userNameEl.textContent = data.user.username;
-                        showNotification('Profil zostaĹ‚ zaktualizowany.', 'success');
+                        showNotification('Profil został zaktualizowany.', 'success');
                         settingsModal.classList.remove('show');
                         document.getElementById('settingsPassword').value = '';
                     } else {
-                        await handleApiError(response, 'BĹ‚Ä…d aktualizacji profilu');
+                        await handleApiError(response, 'Błąd aktualizacji profilu');
                     }
                 } catch (error) {
                     console.error('Error updating profile:', error);
-                    showNotification('WystÄ…piĹ‚ bĹ‚Ä…d podczas aktualizacji profilu.', 'error');
+                    showNotification('Wystąpił błąd podczas aktualizacji profilu.', 'error');
                 }
             });
         }
         const logoutButton = document.getElementById('logoutButton');
         if (logoutButton) {
             logoutButton.addEventListener('click', () => {
-                if (confirm('Czy na pewno chcesz siÄ™ wylogowaÄ‡?')) {
+                if (confirm('Czy na pewno chcesz się wylogować?')) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     window.location.href = '/';
@@ -1707,14 +1732,12 @@ if (messageInput) {
                 avatarEl.style.color = 'white';
                 avatarEl.style.fontSize = '2rem';
             }
-            let status = 'NiedostÄ™pny';
+            let status = 'Niedostępny';
             const friend = friends.find(f => (f.id == userId) || (f.Id == userId));
             if (friend && (friend.isOnline || friend.IsOnline)) {
-                status = 'DostÄ™pny';
-                statusEl.style.color = 'var(--accent-green)';
+                status = 'Dostępny';
             } else if (isOwnProfile) {
-                 status = 'TwĂłj profil';
-                 statusEl.style.color = 'var(--text-color)';
+                 status = 'Twój profil';
             } else {
                 statusEl.style.color = 'var(--text-muted)';
             }
@@ -1723,21 +1746,21 @@ if (messageInput) {
                 mutualsSection.style.display = 'none';
             } else {
                 mutualsSection.style.display = 'block';
-                mutualsList.innerHTML = '<div style="padding:10px;">Ĺadowanie...</div>';
-                serversList.innerHTML = '<div style="padding:10px;">Ĺadowanie...</div>';
+                mutualsList.innerHTML = '<div style="padding:10px;">Ładowanie...</div>';
+                serversList.innerHTML = '<div style="padding:10px;">Ładowanie...</div>';
                 try {
                     const res = await fetch(`${API_URL}/friends/mutual/${userId}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (res.ok) {
                         const mutuals = await res.json();
-                        renderProfileList(mutualsList, mutuals, 'Brak wspĂłlnych znajomych.');
+                        renderProfileList(mutualsList, mutuals, 'Brak wspólnych znajomych.');
                     } else {
-                        mutualsList.innerHTML = '<div style="color:var(--error-color)">BĹ‚Ä…d Ĺ‚adowania</div>';
+                        mutualsList.innerHTML = '<div style="color:var(--error-color)">Błąd ładowania</div>';
                     }
                 } catch (e) {
                     console.error(e);
-                    mutualsList.innerHTML = '<div style="color:var(--error-color)">BĹ‚Ä…d</div>';
+                    mutualsList.innerHTML = '<div style="color:var(--error-color)">Błąd ładowania</div>';
                 }
                 try {
                     const res = await fetch(`${API_URL}/groups/common/${userId}`, {
@@ -1745,13 +1768,13 @@ if (messageInput) {
                     });
                     if (res.ok) {
                         const commons = await res.json();
-                        renderProfileList(serversList, commons, 'Brak wspĂłlnych serwerĂłw.');
+                        renderProfileList(serversList, commons, 'Brak wspólnych serwerów.');
                     } else {
-                        serversList.innerHTML = '<div style="color:var(--error-color)">BĹ‚Ä…d Ĺ‚adowania</div>';
+                        serversList.innerHTML = '<div style="color:var(--error-color)">Błąd ładowania</div>';
                     }
                 } catch (e) {
                     console.error(e);
-                    serversList.innerHTML = '<div style="color:var(--error-color)">BĹ‚Ä…d</div>';
+                    serversList.innerHTML = '<div style="color:var(--error-color)">Błąd ładowania</div>';
                 }
             }
             userProfileModal.classList.add('show');
@@ -1790,9 +1813,182 @@ if (messageInput) {
                 container.appendChild(tile);
             });
         }
+        async function updateConversationSidebar() {
+            if (!conversationSidebar) return;
+            const titleEl = document.getElementById('conversationSidebarTitle');
+            const avatarEl = document.getElementById('conversationSidebarAvatar');
+            const nameEl = document.getElementById('conversationSidebarName');
+            const statusEl = document.getElementById('conversationSidebarStatus');
+            const mutualsSection = document.getElementById('conversationSidebarMutualsSection');
+            const mutualsContainer = document.getElementById('conversationSidebarMutualFriends');
+            const groupsSection = document.getElementById('conversationSidebarGroupsSection');
+            const groupsContainer = document.getElementById('conversationSidebarGroups');
+            const imagesContainer = document.getElementById('conversationSidebarImages');
+            if (mutualsContainer) mutualsContainer.innerHTML = '';
+            if (groupsContainer) groupsContainer.innerHTML = '';
+            if (imagesContainer) imagesContainer.innerHTML = '';
+            if (!titleEl || !avatarEl || !nameEl || !statusEl) return;
+            if (currentChatType === 'global') {
+                titleEl.textContent = 'Czat ogólny';
+                nameEl.textContent = 'Kanał ogólny';
+                avatarEl.style.backgroundImage = '';
+                avatarEl.textContent = ''; // Removed #
+                avatarEl.style.backgroundColor = 'transparent'; // Optional clean up
+                statusEl.textContent = '';
+                
+                if (mutualsSection) mutualsSection.style.display = 'none';
+                
+                // Show Users/Members section for Global Chat
+                if (groupsSection) {
+                    groupsSection.style.display = 'block';
+                    const h4 = groupsSection.querySelector('h4');
+                    if (h4) h4.textContent = 'Użytkownicy';
+                    
+                    // Fetch and display all friends/users for Global Chat
+                    // Since we don't have a specific "all users" endpoint visible, we'll use friends + maybe online status
+                    // Or reuse the logic to show all known users. For now, showing friends is safe.
+                    // If the user implies "everyone in the system", that might require a new endpoint.
+                    // Assuming "Użytkownicy" implies available contacts/friends for now as per "friends" array.
+                    
+                    if (groupsContainer) {
+                         // We will list friends as "Użytkownicy" in global chat for now
+                         // or ideally, fetch all users. Let's use friends list which is already loaded.
+                         // If the user wants ALL users in DB, we'd need a fetch.
+                         // Given the context "wspólne grupy tylko użytkownicy", it likely means "Participants".
+                         // Global chat participants are everyone.
+                         // Let's list friends.
+                         renderProfileList(groupsContainer, friends, 'Brak dostępnych użytkowników.');
+                    }
+                }
+            } else if (currentChatType === 'private' && currentChatId) {
+                const friend = friends.find(f => f.id == currentChatId || f.Id == currentChatId);
+                titleEl.textContent = 'Rozmowa prywatna';
+                const username = friend ? (friend.username || friend.Username || 'Użytkownik') : 'Użytkownik';
+                const avatarUrl = friend ? (friend.avatarUrl || friend.AvatarUrl) : null;
+                nameEl.textContent = username;
+                if (avatarUrl) {
+                    const url = resolveUrl(avatarUrl);
+                    avatarEl.style.backgroundImage = `url('${url}')`;
+                    avatarEl.textContent = '';
+                } else {
+                    avatarEl.style.backgroundImage = '';
+                    avatarEl.textContent = username.charAt(0).toUpperCase();
+                }
+                let status = 'Niedostępny';
+                if (friend && (friend.isOnline || friend.IsOnline)) {
+                    status = 'Dostępny';
+                }
+                statusEl.textContent = status;
+                if (mutualsSection) mutualsSection.style.display = 'block';
+                if (groupsSection) {
+                    groupsSection.style.display = 'block';
+                    const h4 = groupsSection.querySelector('h4');
+                    if (h4) h4.textContent = 'Wspólne grupy';
+                }
+                await loadSidebarMutualsAndGroups(currentChatId);
+            } else if (currentChatType === 'group' && currentChatId) {
+                const group = groups.find(g => g.id == currentChatId || g.Id == currentChatId);
+                titleEl.textContent = 'Grupa';
+                const groupName = group ? (group.name || group.Name || 'Grupa') : 'Grupa';
+                const avatarUrl = group ? (group.avatarUrl || group.AvatarUrl) : null;
+                nameEl.textContent = groupName;
+                if (avatarUrl) {
+                    const url = resolveUrl(avatarUrl);
+                    avatarEl.style.backgroundImage = `url('${url}')`;
+                    avatarEl.textContent = '';
+                } else {
+                    avatarEl.style.backgroundImage = '';
+                    avatarEl.textContent = groupName.charAt(0).toUpperCase();
+                }
+                statusEl.textContent = '';
+                if (mutualsSection) mutualsSection.style.display = 'none';
+                if (groupsSection) {
+                    groupsSection.style.display = 'block';
+                    const h4 = groupsSection.querySelector('h4');
+                    if (h4) h4.textContent = 'Użytkownicy';
+                }
+                if (groupsContainer) {
+                    if (group && Array.isArray(group.members) && group.members.length > 0) {
+                        renderProfileList(groupsContainer, group.members, 'Brak uczestników.');
+                    } else {
+                        // Fallback: try to load groups again to ensure we have the latest data
+                        // The endpoint /api/groups/{id} might not be allowed (405), so we rely on the main list
+                        if (!group || !group.members) {
+                             groupsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Ładowanie listy...</div>';
+                             await loadGroups(); 
+                             const updatedGroup = groups.find(g => g.id == currentChatId || g.Id == currentChatId);
+                             if (updatedGroup && updatedGroup.members) {
+                                 renderProfileList(groupsContainer, updatedGroup.members, 'Brak uczestników.');
+                             } else {
+                                 groupsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Lista uczestników niedostępna.</div>';
+                             }
+                        }
+                    }
+                }
+            }
+            if (imagesContainer) {
+                const messagesContainer = document.getElementById('chat-messages');
+                if (messagesContainer) {
+                    const imgs = messagesContainer.querySelectorAll('img.message-image');
+                    if (!imgs.length) {
+                        imagesContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Brak obrazków w tej konwersacji.</div>';
+                    } else {
+                        imgs.forEach(img => {
+                            const thumb = document.createElement('img');
+                            thumb.src = img.src;
+                            thumb.onclick = () => openLightbox(img.src);
+                            imagesContainer.appendChild(thumb);
+                        });
+                    }
+                }
+            }
+        }
+        async function loadSidebarMutualsAndGroups(userId) {
+            const mutualsSection = document.getElementById('conversationSidebarMutualsSection');
+            const mutualsContainer = document.getElementById('conversationSidebarMutualFriends');
+            const groupsSection = document.getElementById('conversationSidebarGroupsSection');
+            const groupsContainer = document.getElementById('conversationSidebarGroups');
+            if (!mutualsContainer || !groupsContainer) return;
+            try {
+                const res = await fetch(`${API_URL}/friends/mutual/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const mutuals = await res.json();
+                    if (mutuals && mutuals.length > 0) {
+                        renderProfileList(mutualsContainer, mutuals, 'Brak wspólnych znajomych.');
+                    } else {
+                        mutualsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Brak wspólnych znajomych.</div>';
+                    }
+                } else {
+                    mutualsContainer.innerHTML = '<div style="color: var(--error-color); font-size: 0.85rem;">Błąd ładowania</div>';
+                }
+            } catch (e) {
+                console.error(e);
+                mutualsContainer.innerHTML = '<div style="color: var(--error-color); font-size: 0.85rem;">Błąd ładowania</div>';
+            }
+            try {
+                const res = await fetch(`${API_URL}/groups/common/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const commons = await res.json();
+                    if (commons && commons.length > 0) {
+                        renderProfileList(groupsContainer, commons, 'Brak wspólnych serwerów.');
+                    } else {
+                        groupsContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Brak wspólnych serwerów.</div>';
+                    }
+                } else {
+                    groupsContainer.innerHTML = '<div style="color: var(--error-color); font-size: 0.85rem;">Błąd ładowania</div>';
+                }
+            } catch (e) {
+                console.error(e);
+                groupsContainer.innerHTML = '<div style="color: var(--error-color); font-size: 0.85rem;">Błąd ładowania</div>';
+            }
+        }
         async function startConnection() {
             try {
-                if (!signalRAvailable) return;
+                if (!signalRAvailable || !connection) return;
                 if (connection.state === signalR.HubConnectionState.Disconnected) {
                     await connection.start();
                     console.log("SignalR Connected.");
@@ -1804,10 +2000,12 @@ if (messageInput) {
                 setTimeout(startConnection, 6069);
             }
         }
-        connection.onclose(async () => {
-            console.log("SignalR Connection Closed. Reconnecting...");
-            await startConnection();
-        });
+        if (connection) {
+            connection.onclose(async () => {
+                console.log("SignalR Connection Closed. Reconnecting...");
+                await startConnection();
+            });
+        }
         loadFriends();
         loadGroups();
         await startConnection();
@@ -1848,5 +2046,30 @@ if (messageInput) {
                 }
             }
         }
+
+        function toggleSidebar() {
+            if (!conversationSidebar) return;
+            const isOpen = conversationSidebar.classList.contains('open');
+            if (isOpen) {
+                conversationSidebar.classList.remove('open');
+                if (dashboardContainer) dashboardContainer.classList.remove('sidebar-open');
+            } else {
+                updateConversationSidebar();
+                conversationSidebar.classList.add('open');
+                if (dashboardContainer) dashboardContainer.classList.add('sidebar-open');
+            }
+        }
+
+        if (conversationInfoButton) {
+            conversationInfoButton.addEventListener('click', toggleSidebar);
+        }
+        if (closeConversationSidebarButton) {
+            closeConversationSidebarButton.addEventListener('click', () => {
+                conversationSidebar.classList.remove('open');
+                if (dashboardContainer) dashboardContainer.classList.remove('sidebar-open');
+            });
+        }
+
     })();
-}
+    }
+});

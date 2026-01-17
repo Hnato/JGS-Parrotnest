@@ -31,7 +31,7 @@ namespace ParrotnestServer.Controllers
                 if (groupId.HasValue)
                 {
                     var isMember = await _context.GroupMembers.AnyAsync(gm => gm.GroupId == groupId.Value && gm.UserId == userId);
-                    if (!isMember) return Unauthorized("Nie jesteĹ› czĹ‚onkiem tej grupy.");
+                    if (!isMember) return Unauthorized("Nie jesteś członkiem tej grupy.");
                     query = query.Where(m => m.GroupId == groupId.Value);
                 }
                 else if (receiverId.HasValue)
@@ -66,7 +66,7 @@ namespace ParrotnestServer.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = "BĹ‚Ä…d podczas pobierania wiadomoĹ›ci", message = ex.Message });
+                return StatusCode(500, new { error = "Błąd podczas pobierania wiadomości", message = ex.Message });
             }
         }
         [HttpPost("upload")]
@@ -77,7 +77,7 @@ namespace ParrotnestServer.Controllers
             var allowedExtensions = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" };
             var fileExtension = Path.GetExtension(file.FileName).ToLower();
             if (!allowedExtensions.Contains(fileExtension))
-                return BadRequest("Dozwolone sÄ… tylko pliki obrazĂłw (PNG, JPG, JPEG, GIF, WEBP, BMP).");
+                return BadRequest("Dozwolone są tylko pliki obrazów (PNG, JPG, JPEG, GIF, WEBP, BMP).");
             var clientPath = _configuration["ClientPath"] ?? Path.Combine(_environment.ContentRootPath, "..", "Client");
             var uploadsFolder = Path.Combine(clientPath, "uploads");
             if (!Directory.Exists(uploadsFolder))

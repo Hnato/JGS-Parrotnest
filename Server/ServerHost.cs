@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.StaticFiles;
@@ -84,7 +84,6 @@ namespace ParrotnestServer
                 }
                 _app.Urls.Clear();
                 _app.Urls.Add("http://0.0.0.0:6069");
-                _app.Urls.Add("http://localhost:6069");
                 if (_app.Environment.IsDevelopment())
                 {
                     _app.UseSwagger();
@@ -111,11 +110,11 @@ namespace ParrotnestServer
                     var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientPath);
                     var defaultFilesOptions = new DefaultFilesOptions { FileProvider = fileProvider };
                     defaultFilesOptions.DefaultFileNames.Clear();
-                    defaultFilesOptions.DefaultFileNames.Add("login.php");
                     defaultFilesOptions.DefaultFileNames.Add("index.php");
+                    defaultFilesOptions.DefaultFileNames.Add("login.php");
                     _app.UseDefaultFiles(defaultFilesOptions);
                     var provider = new FileExtensionContentTypeProvider();
-                    provider.Mappings[".php"] = "text/html";
+                    provider.Mappings[".php"] = "text/html; charset=utf-8";
                     _app.UseStaticFiles(new StaticFileOptions
                     {
                         FileProvider = fileProvider,
@@ -133,11 +132,11 @@ namespace ParrotnestServer
                 _app.MapHub<ChatHub>("/chatHub");
                 _logAction("Serwer uruchamiany...");
                 await _app.StartAsync();
-                _logAction($"Serwer dziaĹ‚a na: {_app.Urls.FirstOrDefault()}");
+                _logAction($"Serwer działa na: {_app.Urls.FirstOrDefault()}");
             }
             catch (Exception ex)
             {
-                _logAction($"BĹ‚Ä…d krytyczny startu: {ex.Message}");
+                _logAction($"Błąd krytyczny startu: {ex.Message}");
                 throw;
             }
         }
