@@ -81,6 +81,9 @@ namespace ParrotnestServer
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                     dbContext.Database.EnsureCreated();
+                    try {
+                        dbContext.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Status INTEGER DEFAULT 1;");
+                    } catch { /* Ignore if exists */ }
                 }
                 _app.Urls.Clear();
                 _app.Urls.Add("http://0.0.0.0:6069");
@@ -115,6 +118,7 @@ namespace ParrotnestServer
                     _app.UseDefaultFiles(defaultFilesOptions);
                     var provider = new FileExtensionContentTypeProvider();
                     provider.Mappings[".php"] = "text/html; charset=utf-8";
+                    provider.Mappings[".mp3"] = "audio/mpeg";
                     _app.UseStaticFiles(new StaticFileOptions
                     {
                         FileProvider = fileProvider,
